@@ -3,54 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roulette: The Room</title>
+    <title>Roulette: The Handover</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; color: white; user-select: none; }
-        
         #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        
-        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
-        #game-over { display: none; background: rgba(50,0,0,0.9); }
-        
-        h1 { font-size: 3rem; color: #ff3333; text-shadow: 0 0 10px red; margin-bottom: 10px; text-align: center;}
-        p { font-size: 1.2rem; color: #aaa; text-align: center; max-width: 600px; }
-        
-        button { padding: 15px 40px; font-size: 1.5rem; font-family: inherit; font-weight: bold; background: #333; color: white; border: 2px solid #555; cursor: pointer; text-transform: uppercase; transition: 0.2s; pointer-events: auto; }
-        button:hover { background: #555; border-color: white; }
-        button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.5; pointer-events: none; }
-
-        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 30px; pointer-events: auto;}
-        
-        #status { text-align: center; font-size: 1.5rem; padding-top: 20px; text-shadow: 2px 2px 0 #000; color: #fff; }
-
-        /* Эффект разбитого экрана и крови */
-        #damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; display: none; background: radial-gradient(circle, transparent 20%, rgba(150,0,0,0.8) 80%); }
-        .crack { position: absolute; width: 2px; background: rgba(255,255,255,0.8); box-shadow: 0 0 5px white; transform-origin: top; }
-        .blood-splatter { position: absolute; background: #800000; border-radius: 50%; filter: blur(2px); }
-
-        /* Ландшафтный режим */
-        #orientation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
-        @media (orientation: landscape) { #orientation { display: none; } }
+        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; text-align: center; }
+        h1 { font-size: 3rem; color: #ff3333; text-shadow: 0 0 15px red; margin: 10px; }
+        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 40px; pointer-events: auto; }
+        button { padding: 15px 30px; font-size: 1.2rem; font-family: inherit; background: #222; color: white; border: 2px solid #444; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        button:hover { background: #444; border-color: #fff; }
+        button:disabled { opacity: 0.3; }
+        #status { text-align: center; font-size: 1.5rem; padding-top: 30px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); height: 100px; }
+        #damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; display: none; }
+        .blood { position: absolute; background: #600; border-radius: 50%; filter: blur(5px); opacity: 0.8; }
+        #orientation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: none; justify-content: center; align-items: center; text-align: center; }
+        @media (orientation: portrait) { #orientation { display: flex; } }
     </style>
 </head>
 <body>
 
-    <div id="orientation">
-        <h2>Пожалуйста, переверните устройство в ландшафтный режим</h2>
-    </div>
+    <div id="orientation"><h2>ПЕРЕВЕРНИТЕ ТЕЛЕФОН</h2></div>
 
     <div id="menu">
-        <h1>СМЕРТЕЛЬНАЯ ИГРА</h1>
-        <p>1 пуля. 6 камор. Вы и Дилер.<br>Осмотрите револьвер, крутите барабан.</p>
-        <button id="start-btn">Начать игру</button>
+        <h1>STAKES</h1>
+        <p>Крути. Передавай. Выживай.</p>
+        <button id="start-btn">ПРИНЯТЬ ПАРИ</button>
     </div>
 
     <div id="game-over">
-        <h1 id="go-title">ВЫ МЕРТВЫ</h1>
-        <button id="restart-btn" style="margin-top: 20px;">Играть снова</button>
+        <h1 id="go-title">КОНЕЦ</h1>
+        <button onclick="location.reload()">ЗАНОВО</button>
     </div>
 
     <div id="damage-overlay"></div>
@@ -58,552 +41,362 @@
     <div id="ui-layer">
         <div id="status"></div>
         <div class="controls" id="controls">
-            <button id="examine-btn">Осмотр</button>
+            <button id="take-btn" style="display:none;">Взять пистолет</button>
             <button id="spin-btn">Крутить</button>
-            <button id="shoot-btn">Стрелять (в себя)</button>
+            <button id="shoot-btn">Стрелять</button>
         </div>
     </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
-        let scene, camera, renderer, light;
-        let clockCanvas, clockCtx, clockTex;
-        let enemyGroup, enemyArm, gunGroup, cylinderMesh;
-        let shellGroup;
-        
-        // Аудио контекст (создается после клика)
-        let audioCtx;
-        
-        // Логика игры
-        let bulletPos = -1;
-        let currentChamber = 0;
-        let totalShots = 0;
-        let state = 'MENU'; // MENU, PLAYER, ENEMY, ANIMATING, DEAD
+        let scene, camera, renderer, gunGroup, cylinderMesh, enemyGroup, enemyArm, eyeLight, moon;
+        let clockTex, clockCtx, cloudGroup;
+        let audioCtx, droneOsc;
+        let bulletPos = -1, currentChamber = 0, state = 'MENU';
+        let gunTargetPos = new THREE.Vector3(), gunTargetRot = new THREE.Euler();
 
         const uiStatus = document.getElementById('status');
-        const controls = document.getElementById('controls');
-        const damageOverlay = document.getElementById('damage-overlay');
+        const ctrl = document.getElementById('controls');
+        const takeBtn = document.getElementById('take-btn');
+        const spinBtn = document.getElementById('spin-btn');
+        const shootBtn = document.getElementById('shoot-btn');
 
-        // --- ПРОЦЕДУРНОЕ АУДИО (Синтезатор) ---
-        const SoundFX = {
-            init: () => { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); },
-            playGunshot: () => {
-                if(!audioCtx) return;
-                const osc = audioCtx.createOscillator();
+        // --- АУДИО СИСТЕМА ---
+        const Sound = {
+            init() {
+                if(audioCtx) return;
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                this.startMusic();
+            },
+            startMusic() {
+                const drone = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                drone.type = 'sawtooth';
+                drone.frequency.setValueAtTime(40, audioCtx.currentTime);
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass'; filter.frequency.value = 200;
+                gain.gain.value = 0.1;
+                drone.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                drone.start();
                 
-                // Шум для выстрела
-                const bufferSize = audioCtx.sampleRate * 0.5;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = buffer;
-                const noiseFilter = audioCtx.createBiquadFilter();
-                noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 1000;
-                noise.connect(noiseFilter); noiseFilter.connect(gain);
-                noise.start();
+                // Пульсация громкости
+                setInterval(() => {
+                    gain.gain.exponentialRampToValueAtTime(0.05 + Math.random()*0.1, audioCtx.currentTime + 2);
+                }, 2000);
             },
-            playClick: () => {
+            play(type) {
                 if(!audioCtx) return;
                 const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            },
-            playSpin: () => {
-                if(!audioCtx) return;
-                let time = audioCtx.currentTime;
-                for(let i=0; i<10; i++) {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'triangle'; osc.frequency.value = 400 + Math.random()*200;
-                    gain.gain.setValueAtTime(0.1, time);
-                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
-                    osc.connect(gain); gain.connect(audioCtx.destination);
-                    osc.start(time); osc.stop(time + 0.05);
-                    time += 0.05 + Math.random()*0.05;
-                }
-            },
-            playHeartbeat: (intensity) => {
-                if(!audioCtx || state === 'DEAD' || state === 'MENU') return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine'; osc.frequency.setValueAtTime(40, audioCtx.currentTime);
-                gain.gain.setValueAtTime(intensity * 0.5, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-                
-                // Пульсация света
-                if(light) {
-                    light.intensity = 1 + (intensity * 2);
-                    setTimeout(() => light.intensity = 1, 150);
+                const g = audioCtx.createGain();
+                osc.connect(g); g.connect(audioCtx.destination);
+                if(type === 'click') {
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                    g.gain.value = 0.3; osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if(type === 'shot') {
+                    osc.type = 'square'; osc.frequency.value = 60;
+                    g.gain.setValueAtTime(1, audioCtx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+                } else if(type === 'spin') {
+                    for(let i=0; i<15; i++) {
+                        setTimeout(() => this.play('click'), i * 60);
+                    }
                 }
             }
         };
 
-        // Хартбит луп
-        setInterval(() => {
-            if(state === 'PLAYER' || state === 'ENEMY') {
-                let risk = totalShots / 5; // от 0 до 1
-                SoundFX.playHeartbeat(0.2 + risk);
-            }
-        }, 1000 - (totalShots * 150)); // Ускоряется с каждым выстрелом
-
-
-        // --- ИНИЦИАЛИЗАЦИЯ THREE.JS ---
-        function init3D() {
+        // --- ИНИЦИАЛИЗАЦИЯ ---
+        function init() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.Fog(0x050505, 5, 20);
+            scene.background = new THREE.Color(0x020205);
+            scene.fog = new THREE.Fog(0x020205, 2, 15);
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 1.5, 3); // Позиция игрока
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.6, 2.5);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            document.body.insertBefore(renderer.domElement, document.body.firstChild);
+            document.body.appendChild(renderer.domElement);
             renderer.domElement.id = 'game-canvas';
 
-            // Освещение
-            scene.add(new THREE.AmbientLight(0x222233));
-            light = new THREE.PointLight(0xffddaa, 1, 15);
-            light.position.set(0, 3, 0);
-            light.castShadow = true;
-            scene.add(light);
-
-            // Лампочка
-            const bulbGeo = new THREE.SphereGeometry(0.1, 8, 8);
-            const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
-            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
-            bulb.position.set(0, 3, 0);
-            scene.add(bulb);
+            const amb = new THREE.AmbientLight(0x111122, 0.5); scene.add(amb);
+            const pLight = new THREE.PointLight(0xffaa88, 1, 10);
+            pLight.position.set(0, 3, 0); pLight.castShadow = true; scene.add(pLight);
 
             buildRoom();
             buildEnemy();
             buildGun();
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
             animate();
         }
 
-        // --- СОЗДАНИЕ ОКРУЖЕНИЯ ---
         function buildRoom() {
-            // Комната
-            const roomGeo = new THREE.BoxGeometry(10, 6, 10);
-            const roomMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.BackSide, roughness: 0.9 });
-            const room = new THREE.Mesh(roomGeo, roomMat);
-            room.position.y = 3;
-            room.receiveShadow = true;
+            // Стены
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1 });
+            const room = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), wallMat);
+            room.position.y = 3; room.material.side = THREE.BackSide;
             scene.add(room);
 
-            // Стол
-            const tableGeo = new THREE.BoxGeometry(4, 1, 2);
-            const tableMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.8 });
-            const table = new THREE.Mesh(tableGeo, tableMat);
-            table.position.set(0, 0.5, 1);
-            table.receiveShadow = true; table.castShadow = true;
-            scene.add(table);
+            // Окно
+            const winGeo = new THREE.PlaneGeometry(3, 2);
+            const winMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
+            const win = new THREE.Mesh(winGeo, winMat);
+            win.position.set(0, 3, -4.95); scene.add(win);
 
-            // Окно (просто вырез - имитация черным квадратом на стене и зданиями за ним)
-            const windowBgGeo = new THREE.PlaneGeometry(3, 2);
-            const windowBgMat = new THREE.MeshBasicMaterial({ color: 0x000011 }); // Ночное небо
-            const windowBg = new THREE.Mesh(windowBgGeo, windowBgMat);
-            windowBg.position.set(0, 3, -4.9);
-            scene.add(windowBg);
+            // Луна
+            moon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshBasicMaterial({color: 0xffffcc}));
+            moon.position.set(1, 3.5, -6); scene.add(moon);
 
-            // Здания за окном (Декорации)
-            const bldgMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-            for(let i=0; i<3; i++) {
-                const bGeo = new THREE.BoxGeometry(0.5 + Math.random(), 2 + Math.random()*2, 0.5);
-                const bMesh = new THREE.Mesh(bGeo, bldgMat);
-                bMesh.position.set(-1 + i*1, 1 + bGeo.parameters.height/2, -5.5 + Math.random());
-                scene.add(bMesh);
+            // Облака
+            cloudGroup = new THREE.Group();
+            for(let i=0; i<5; i++) {
+                const cloud = new THREE.Mesh(new THREE.BoxGeometry(1, 0.2, 0.1), new THREE.MeshBasicMaterial({color: 0x111122, transparent: true, opacity: 0.5}));
+                cloud.position.set(Math.random()*4-2, 2.5+Math.random(), -5.5);
+                cloudGroup.add(cloud);
             }
+            scene.add(cloudGroup);
 
-            // Настенные часы (Canvas Texture)
-            clockCanvas = document.createElement('canvas');
-            clockCanvas.width = 256; clockCanvas.height = 128;
-            clockCtx = clockCanvas.getContext('2d');
-            clockTex = new THREE.CanvasTexture(clockCanvas);
-            
-            const clockGeo = new THREE.PlaneGeometry(1.5, 0.75);
-            const clockMat = new THREE.MeshBasicMaterial({ map: clockTex });
-            const clockMesh = new THREE.Mesh(clockGeo, clockMat);
-            clockMesh.position.set(-3, 3, -4.9);
-            scene.add(clockMesh);
+            // Стол
+            const table = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 2.5), new THREE.MeshStandardMaterial({color: 0x1a110a}));
+            table.position.set(0, 0.9, 0.5); table.receiveShadow = true; scene.add(table);
+
+            // Часы
+            const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 64;
+            clockCtx = canvas.getContext('2d');
+            clockTex = new THREE.CanvasTexture(canvas);
+            const clock = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.5), new THREE.MeshBasicMaterial({map: clockTex}));
+            clock.position.set(-2.5, 3.5, -4.9); scene.add(clock);
         }
 
-        // Обновление часов каждый кадр
-        function updateClock() {
-            if(!clockCtx) return;
-            clockCtx.fillStyle = '#050505';
-            clockCtx.fillRect(0, 0, 256, 128);
-            clockCtx.font = '60px "Courier New"';
-            clockCtx.fillStyle = '#ff0000';
-            clockCtx.textAlign = 'center';
-            clockCtx.textBaseline = 'middle';
-            const now = new Date();
-            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
-            clockCtx.fillText(timeStr, 128, 64);
-            clockTex.needsUpdate = true;
-        }
-
-        // --- СОЗДАНИЕ ВРАГА ---
         function buildEnemy() {
             enemyGroup = new THREE.Group();
-            enemyGroup.position.set(0, 0, -1);
-            scene.add(enemyGroup);
-
-            const mat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+            const mat = new THREE.MeshStandardMaterial({color: 0x0a0a0a});
             
-            // Тело
-            const bodyGeo = new THREE.BoxGeometry(1.2, 1.5, 0.8);
-            const body = new THREE.Mesh(bodyGeo, mat);
-            body.position.y = 1.75; body.castShadow = true;
-            enemyGroup.add(body);
+            // Тело и костюм
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.4, 0.6), mat);
+            torso.position.y = 1.6; enemyGroup.add(torso);
+            
+            const shirt = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.8), new THREE.MeshBasicMaterial({color: 0xeeeeee}));
+            shirt.position.set(0, 1.9, 0.31); enemyGroup.add(shirt);
 
             // Голова
-            const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-            const head = new THREE.Mesh(headGeo, mat);
-            head.position.y = 2.9; head.castShadow = true;
-            enemyGroup.add(head);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.7), mat);
+            head.position.y = 2.8; enemyGroup.add(head);
 
-            // Лицо (просто светящиеся глаза)
-            const eyeGeo = new THREE.PlaneGeometry(0.2, 0.1);
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-            const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.2, 0, 0.41);
-            const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.2, 0, 0.41);
-            head.add(eyeL); head.add(eyeR);
+            // Глаза
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0x220000}));
+            eyeL.position.set(-0.15, 2.9, 0.35); enemyGroup.add(eyeL);
+            
+            const mechEye = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.1), new THREE.MeshBasicMaterial({color: 0xff0000}));
+            mechEye.rotation.x = Math.PI/2; mechEye.position.set(0.15, 2.9, 0.35); enemyGroup.add(mechEye);
+            eyeLight = new THREE.PointLight(0xff0000, 0.5, 2); eyeLight.position.copy(mechEye.position);
+            enemyGroup.add(eyeLight);
 
-            // Аксессуар: Цилиндр (Шляпа)
-            const hatGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16);
-            const hatBrimGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.05, 16);
-            const hat = new THREE.Group();
-            const hatMesh1 = new THREE.Mesh(hatGeo, mat); hatMesh1.position.y = 0.3;
-            const hatMesh2 = new THREE.Mesh(hatBrimGeo, mat);
-            hat.add(hatMesh1); hat.add(hatMesh2);
-            hat.position.y = 0.4; head.add(hat);
-            hat.rotation.x = -0.1;
-
-            // Правая рука (с шарниром в плече)
+            // Рука
             enemyArm = new THREE.Group();
-            enemyArm.position.set(-0.7, 2.3, 0); // Позиция плеча
+            enemyArm.position.set(0.6, 2.2, 0.2);
+            const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), mat);
+            armMesh.position.y = -0.4; enemyArm.add(armMesh);
             enemyGroup.add(enemyArm);
 
-            const armGeo = new THREE.BoxGeometry(0.3, 1.2, 0.3);
-            const armMesh = new THREE.Mesh(armGeo, mat);
-            armMesh.position.y = -0.6; // Смещение чтобы вращалась от плеча
-            armMesh.castShadow = true;
-            enemyArm.add(armMesh);
-
-            // Пальцы (Стилизованная клешня)
-            const fingerGeo = new THREE.BoxGeometry(0.1, 0.3, 0.1);
-            const f1 = new THREE.Mesh(fingerGeo, mat); f1.position.set(-0.1, -1.3, 0.1); enemyArm.add(f1);
-            const f2 = new THREE.Mesh(fingerGeo, mat); f2.position.set(0.1, -1.3, 0.1); enemyArm.add(f2);
-            const f3 = new THREE.Mesh(fingerGeo, mat); f3.position.set(0, -1.3, -0.1); enemyArm.add(f3);
+            enemyGroup.position.z = -1.5;
+            scene.add(enemyGroup);
         }
 
-        // --- СОЗДАНИЕ ОРУЖИЯ ---
         function buildGun() {
             gunGroup = new THREE.Group();
-            const metalMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9, roughness: 0.2 });
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
-
-            // Ствол
-            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 16), metalMat);
-            barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.1, 0.2);
-            gunGroup.add(barrel);
-
-            // Рукоять
-            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.25, 0.1), woodMat);
-            grip.position.set(0, -0.05, -0.15); grip.rotation.x = 0.3;
-            gunGroup.add(grip);
-
-            // Барабан
-            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 16), metalMat);
-            cylinderMesh.rotation.x = Math.PI / 2;
-            gunGroup.add(cylinderMesh);
+            const gMat = new THREE.MeshStandardMaterial({color: 0x222222, metalness: 1});
+            const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.4), gMat);
+            barrel.position.z = 0.2; gunGroup.add(barrel);
+            
+            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.15, 12), gMat);
+            cylinderMesh.rotation.x = Math.PI/2; gunGroup.add(cylinderMesh);
+            
+            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.1), new THREE.MeshStandardMaterial({color: 0x332211}));
+            grip.position.set(0, -0.15, -0.1); gunGroup.add(grip);
 
             scene.add(gunGroup);
-            resetGunPosition(); // Кладем на стол
-            
-            // Группа для гильз
-            shellGroup = new THREE.Group();
-            scene.add(shellGroup);
+            setGunState('TABLE_ENEMY');
         }
 
-        function resetGunPosition() {
-            gunGroup.position.set(0, 1.05, 1);
-            gunGroup.rotation.set(0, Math.PI / 2, 0); // Лежит боком
-            scene.attach(gunGroup); // Открепляем от рук/камеры
+        // --- СОСТОЯНИЯ ОРУЖИЯ ---
+        function setGunState(s) {
+            switch(s) {
+                case 'TABLE_ENEMY':
+                    scene.attach(gunGroup);
+                    gunTargetPos.set(0, 1, -0.5);
+                    gunTargetRot.set(0, Math.PI/2, 0);
+                    break;
+                case 'TABLE_PLAYER':
+                    scene.attach(gunGroup);
+                    gunTargetPos.set(0, 1, 1);
+                    gunTargetRot.set(0, -Math.PI/2, 0);
+                    break;
+                case 'PLAYER_HAND':
+                    camera.attach(gunGroup);
+                    gunTargetPos.set(0.3, -0.25, -0.5);
+                    gunTargetRot.set(0, Math.PI, 0);
+                    break;
+                case 'PLAYER_AIM':
+                    camera.attach(gunGroup);
+                    gunTargetPos.set(0, -0.1, -0.3);
+                    gunTargetRot.set(0, 0, 0); // Дуло в экран
+                    break;
+                case 'ENEMY_HAND':
+                    enemyArm.attach(gunGroup);
+                    gunTargetPos.set(0, -1, 0.1);
+                    gunTargetRot.set(Math.PI/2, 0, 0);
+                    break;
+            }
         }
 
-
-        // --- АНИМАЦИИ ---
-        let animTarget = { rotX: 0, rotY: 0, rotZ: 0, posX: 0, posY: 0, posZ: 0 };
-        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
-
-        function updateGunAnimation() {
-            if(state === 'DEAD' || state === 'MENU') return;
-            // Плавный переход оружия
-            gunGroup.position.x = lerp(gunGroup.position.x, animTarget.posX, 0.1);
-            gunGroup.position.y = lerp(gunGroup.position.y, animTarget.posY, 0.1);
-            gunGroup.position.z = lerp(gunGroup.position.z, animTarget.posZ, 0.1);
-            
-            // Кватернионы для вращения (упрощенно)
-            gunGroup.rotation.x = lerp(gunGroup.rotation.x, animTarget.rotX, 0.1);
-            gunGroup.rotation.y = lerp(gunGroup.rotation.y, animTarget.rotY, 0.1);
-            gunGroup.rotation.z = lerp(gunGroup.rotation.z, animTarget.rotZ, 0.1);
-        }
-
-        // --- ЛОГИКА ИГРЫ ---
-        
-        function startGame() {
-            SoundFX.init();
+        // --- ЛОГИКА ---
+        function start() {
+            Sound.init();
             document.getElementById('menu').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
-            damageOverlay.style.display = 'none';
-            damageOverlay.innerHTML = '';
-            
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-            
             bulletPos = Math.floor(Math.random() * 6);
             currentChamber = 0;
-            totalShots = 0;
-            
-            playerTurn();
-        }
-
-        function playerTurn() {
-            state = 'PLAYER';
-            controls.style.display = 'flex';
-            uiStatus.innerText = "ВАШ ХОД";
-            
-            // Берем оружие в руку (прикрепляем к камере)
-            camera.attach(gunGroup);
-            animTarget = { posX: 0.2, posY: -0.2, posZ: -0.5, rotX: 0, rotY: Math.PI, rotZ: 0 }; // Дуло от себя
-            
-            document.getElementById('spin-btn').disabled = false;
+            enemyTurn();
         }
 
         function enemyTurn() {
             state = 'ENEMY';
-            controls.style.display = 'none';
-            uiStatus.innerText = "ХОД ДИЛЕРА...";
-            
-            // Оружие отдается врагу
-            enemyArm.attach(gunGroup);
-            // Позиция в руке врага
-            animTarget = { posX: 0, posY: -1.4, posZ: 0, rotX: 0, rotY: 0, rotZ: 0 };
+            uiStatus.innerText = "ДИЛЕР ЗАБИРАЕТ ОРУЖИЕ";
+            setGunState('ENEMY_HAND');
             
             setTimeout(() => {
-                // Враг крутит барабан (иногда)
-                if(Math.random() > 0.5 && totalShots > 0) {
-                    uiStatus.innerText = "Дилер крутит барабан...";
-                    spinCylinder(() => { executeEnemyShot(); });
-                } else {
-                    executeEnemyShot();
-                }
-            }, 1500);
-        }
-
-        function executeEnemyShot() {
-            // Враг поднимает руку к голове
-            let armLiftInterval = setInterval(() => {
-                enemyArm.rotation.x -= 0.1;
-                if(enemyArm.rotation.x <= -Math.PI/2) {
-                    clearInterval(armLiftInterval);
-                    // Направляет дуло себе в висок (упрощенная математика поворота оружия в руке)
-                    animTarget.rotY = Math.PI / 2;
-                    animTarget.rotZ = Math.PI / 4;
-                    
-                    setTimeout(() => { pullTrigger(false); }, 1000);
-                }
-            }, 30);
-        }
-
-        function pullTrigger(isPlayer) {
-            state = 'ANIMATING';
-            controls.style.display = 'none';
-            totalShots++;
-
-            // Если стреляет игрок - поворачиваем дуло на себя!
-            if(isPlayer) {
-                animTarget.rotX = 0;
-                animTarget.rotY = 0; // Поворот дула к камере
-                animTarget.rotZ = 0;
-                animTarget.posX = 0;
-                animTarget.posY = -0.1;
-                animTarget.posZ = -0.3;
-            }
-
-            setTimeout(() => {
-                if(currentChamber === bulletPos) {
-                    // ВЫСТРЕЛ
-                    SoundFX.playGunshot();
-                    spawnShell();
-                    light.color.setHex(0xff0000); // Вспышка
-                    setTimeout(()=> light.color.setHex(0xffddaa), 100);
-
-                    if(isPlayer) {
-                        createScreenDamage();
-                        gameOver(false);
-                    } else {
-                        // Враг умирает (падает голова)
-                        enemyGroup.children[1].rotation.x = -Math.PI/4; 
-                        enemyArm.rotation.x = 0; // роняет руку
-                        setTimeout(() => resetGunPosition(), 500);
-                        gameOver(true);
-                    }
-                } else {
-                    // ОСЕЧКА
-                    SoundFX.playClick();
-                    currentChamber++;
-                    if(currentChamber >= 6) { uiStatus.innerText = "Пусто. Нужна перезарядка."; bulletPos = -1;}
-                    else { uiStatus.innerText = "*Клик*"; }
-                    
-                    setTimeout(() => {
-                        if(isPlayer) {
-                            enemyTurn();
-                        } else {
-                            // Враг опускает руку
-                            let armDropInterval = setInterval(() => {
-                                enemyArm.rotation.x += 0.1;
-                                if(enemyArm.rotation.x >= 0) {
-                                    clearInterval(armDropInterval);
-                                    enemyArm.rotation.x = 0;
-                                    playerTurn();
-                                }
-                            }, 30);
-                        }
-                    }, 1000);
-                }
-            }, isPlayer ? 500 : 0); // Небольшая задержка, чтобы игрок увидел направленный ствол
-        }
-
-        function spinCylinder(callback) {
-            SoundFX.playSpin();
-            document.getElementById('spin-btn').disabled = true;
-            
-            let spins = 20 + Math.floor(Math.random() * 10);
-            let spinInterval = setInterval(() => {
-                cylinderMesh.rotation.y += 0.5;
-                spins--;
-                if(spins <= 0) {
-                    clearInterval(spinInterval);
-                    bulletPos = Math.floor(Math.random() * 6);
-                    currentChamber = 0;
-                    totalShots = 0;
-                    if(callback) callback();
-                }
-            }, 50);
-        }
-
-        // --- ЭФФЕКТЫ ---
-
-        function spawnShell() {
-            const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8), new THREE.MeshBasicMaterial({color: 0xddaa00}));
-            gunGroup.getWorldPosition(shell.position);
-            scene.add(shell);
-            
-            // Примитивная физика падения
-            let velY = 0.05;
-            let fallInt = setInterval(() => {
-                shell.position.y += velY;
-                shell.position.x += 0.02;
-                shell.rotation.x += 0.2;
-                shell.rotation.z += 0.2;
-                velY -= 0.005; // гравитация
-                if(shell.position.y < 0.5) {
-                    clearInterval(fallInt);
-                    // Звук падения гильзы (простой клик)
-                    SoundFX.playClick();
-                }
-            }, 30);
-        }
-
-        function createScreenDamage() {
-            damageOverlay.style.display = 'block';
-            for(let i=0; i<5; i++) {
-                const crack = document.createElement('div');
-                crack.className = 'crack';
-                crack.style.height = (50 + Math.random()*150) + 'px';
-                crack.style.left = (Math.random() * 100) + '%';
-                crack.style.top = (Math.random() * 100) + '%';
-                crack.style.transform = `rotate(${Math.random()*360}deg)`;
-                damageOverlay.appendChild(crack);
+                uiStatus.innerText = "ДИЛЕР ЦЕЛИТСЯ";
+                enemyArm.rotation.x = -Math.PI * 0.6; // Поднять руку к голове
                 
-                const blood = document.createElement('div');
-                blood.className = 'blood-splatter';
-                let size = 20 + Math.random()*80;
-                blood.style.width = size + 'px';
-                blood.style.height = size + 'px';
-                blood.style.left = (Math.random() * 100) + '%';
-                blood.style.top = (Math.random() * 100) + '%';
-                damageOverlay.appendChild(blood);
-            }
+                setTimeout(() => {
+                    if(currentChamber === bulletPos) {
+                        Sound.play('shot');
+                        uiStatus.innerText = "ДИЛЕР ПРОИГРАЛ";
+                        state = 'END';
+                    } else {
+                        Sound.play('click');
+                        uiStatus.innerText = "ОСЕЧКА";
+                        currentChamber++;
+                        setTimeout(pushToPlayer, 1000);
+                    }
+                }, 1000);
+            }, 1000);
         }
 
-        function gameOver(playerWon) {
-            state = 'DEAD';
+        function pushToPlayer() {
+            uiStatus.innerText = "ДИЛЕР ВОЗВРАЩАЕТ РЕВОЛЬВЕР";
+            enemyArm.rotation.x = 0;
+            setGunState('TABLE_ENEMY');
+            
             setTimeout(() => {
-                document.getElementById('game-over').style.display = 'flex';
-                document.getElementById('go-title').innerText = playerWon ? "ДИЛЕР МЕРТВ. ВЫ ВЫЖИЛИ." : "ВЫ МЕРТВЫ";
-                document.getElementById('go-title').style.color = playerWon ? "#00ff00" : "#ff0000";
-            }, 2000);
+                setGunState('TABLE_PLAYER'); // Анимация скольжения по столу
+                setTimeout(() => {
+                    ctrl.style.display = 'flex';
+                    takeBtn.style.display = 'block';
+                    spinBtn.style.display = 'none';
+                    shootBtn.style.display = 'none';
+                    uiStatus.innerText = "ВАШ ЧЕРЕД";
+                }, 1000);
+            }, 800);
         }
 
-        // --- УПРАВЛЕНИЕ ---
-        document.getElementById('start-btn').onclick = startGame;
-        document.getElementById('restart-btn').onclick = () => location.reload();
-        
-        document.getElementById('shoot-btn').onclick = () => pullTrigger(true);
-        document.getElementById('spin-btn').onclick = () => spinCylinder();
-        
-        // Осмотр револьвера
-        let isExamining = false;
-        document.getElementById('examine-btn').onclick = () => {
-            isExamining = !isExamining;
-            if(isExamining) {
-                animTarget.rotX = Math.PI / 4;
-                animTarget.rotY = Math.PI / 2; // Боком
-                animTarget.posX = 0;
-            } else {
-                animTarget.rotX = 0;
-                animTarget.rotY = Math.PI; // Обратно от себя
-                animTarget.posX = 0.2;
-            }
+        takeBtn.onclick = () => {
+            Sound.play('click');
+            setGunState('PLAYER_HAND');
+            takeBtn.style.display = 'none';
+            spinBtn.style.display = 'block';
+            shootBtn.style.display = 'block';
+            state = 'PLAYER_READY';
         };
 
-        // --- ГЛАВНЫЙ ЦИКЛ ---
+        spinBtn.onclick = () => {
+            Sound.play('spin');
+            spinBtn.disabled = true;
+            let spins = 0;
+            const interval = setInterval(() => {
+                cylinderMesh.rotation.y += 0.5;
+                spins++;
+                if(spins > 20) {
+                    clearInterval(interval);
+                    bulletPos = Math.floor(Math.random()*6);
+                    currentChamber = 0;
+                    spinBtn.disabled = false;
+                    uiStatus.innerText = "БАРАБАН ПРОКРУЧЕН";
+                }
+            }, 50);
+        };
+
+        shootBtn.onclick = () => {
+            state = 'PLAYER_AIMING';
+            setGunState('PLAYER_AIM');
+            ctrl.style.display = 'none';
+            
+            setTimeout(() => {
+                if(currentChamber === bulletPos) {
+                    Sound.play('shot');
+                    showDeath();
+                } else {
+                    Sound.play('click');
+                    currentChamber++;
+                    uiStatus.innerText = "ВЫЖИЛ";
+                    setTimeout(() => {
+                        enemyTurn();
+                    }, 1000);
+                }
+            }, 800);
+        };
+
+        function showDeath() {
+            document.getElementById('damage-overlay').style.display = 'block';
+            for(let i=0; i<10; i++) {
+                const b = document.createElement('div');
+                b.className = 'blood';
+                b.style.width = b.style.height = (Math.random()*150+50)+'px';
+                b.style.left = Math.random()*100+'%';
+                b.style.top = Math.random()*100+'%';
+                document.getElementById('damage-overlay').appendChild(b);
+            }
+            setTimeout(() => {
+                document.getElementById('game-over').style.display = 'flex';
+            }, 1000);
+        }
+
+        // --- ЦИКЛ ---
         function animate() {
             requestAnimationFrame(animate);
-            updateClock();
-            if(gunGroup) updateGunAnimation();
+            
+            // Плавное движение пистолета
+            gunGroup.position.lerp(gunTargetPos, 0.1);
+            gunGroup.quaternion.slerp(new THREE.Quaternion().setFromEuler(gunTargetRot), 0.1);
+
+            // Часы
+            const now = new Date();
+            clockCtx.fillStyle = '#000'; clockCtx.fillRect(0,0,128,64);
+            clockCtx.fillStyle = '#f00'; clockCtx.font = '20px monospace';
+            clockCtx.fillText(now.toLocaleTimeString(), 10, 40);
+            clockTex.needsUpdate = true;
+
+            // Окно и облака
+            cloudGroup.children.forEach(c => {
+                c.position.x += 0.002;
+                if(c.position.x > 3) c.position.x = -3;
+            });
+
+            // Эффект безумия (дрожание камеры)
+            if(state === 'PLAYER_AIMING') {
+                camera.position.x = Math.sin(Date.now()*0.1) * 0.01;
+                camera.position.y = 1.6 + Math.cos(Date.now()*0.15) * 0.01;
+            } else {
+                camera.position.x = 0; camera.position.y = 1.6;
+            }
+
             renderer.render(scene, camera);
         }
 
-        init3D();
+        document.getElementById('start-btn').onclick = start;
+        init();
     </script>
 </body>
 </html>
