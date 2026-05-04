@@ -1,237 +1,202 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Russian Roulette Mobile</title>
+    <title>Russian Roulette 3D</title>
     <style>
-        :root {
-            --bg-color: #1a1a1a;
-            --accent-color: #e74c3c;
-            --gold: #d4af37;
-        }
-
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: var(--bg-color);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: white;
-            display: flex;
-            justify-content: center;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: #000;
+            font-family: sans-serif; color: white;
+        }
+
+        /* Интерфейс поверх 3D */
+        #ui-layer {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
             align-items: center;
+            pointer-events: none; /* Чтобы можно было крутить камеру, если нужно */
+            padding: 20px; box-sizing: border-box;
         }
 
-        /* Предупреждение о повороте экрана */
-        #orientation-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-color);
-            z-index: 1000;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }
-
-        @media (orientation: portrait) {
-            #orientation-overlay { display: flex; }
-        }
-
-        /* Основной контейнер */
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            align-items: center;
-            background: radial-gradient(circle, #2c3e50 0%, #000 100%);
-        }
-
-        /* Барабан револьвера */
-        #cylinder-container {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            border: 5px solid #444;
-            border-radius: 50%;
-            transition: transform 1s cubic-bezier(0.1, 0.7, 0.1, 1);
-            background: #333;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-        }
-
-        .chamber {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background: #111;
-            border-radius: 50%;
-            border: 2px solid #555;
-            top: 50%; left: 50%;
-            margin: -20px;
-        }
-
-        /* Кнопки */
-        .controls {
-            display: flex;
-            gap: 20px;
+        .btn-container {
+            display: flex; gap: 20px; pointer-events: auto;
+            margin-bottom: 30px;
         }
 
         button {
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.3s;
+            padding: 15px 40px; font-size: 1.2rem; font-weight: bold;
+            border: none; border-radius: 8px; cursor: pointer;
+            text-transform: uppercase; transition: 0.2s;
         }
 
-        #spin-btn { background-color: var(--gold); color: #000; }
-        #fire-btn { background-color: var(--accent-color); color: #fff; }
-        
-        button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #spin-btn { background: #d4af37; color: #000; }
+        #fire-btn { background: #e74c3c; color: #fff; }
+        button:disabled { opacity: 0.3; }
 
         #status {
-            font-size: 1.5rem;
-            height: 2rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-size: 2rem; text-align: center;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            margin-top: 20px;
         }
 
-        /* Полноэкранный запрос */
-        #fs-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
+        #orientation-overlay, #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            text-align: center; flex-direction: column;
         }
+
+        @media (orientation: landscape) { #orientation-overlay { display: none; } }
+        @media (orientation: portrait) { #orientation-overlay { display: flex; } }
     </style>
 </head>
 <body>
 
     <div id="orientation-overlay">
-        <h2>🔄 Пожалуйста, переверните устройство в ландшафтный режим</h2>
+        <h2>🔄 Переверните телефон в ландшафтный режим</h2>
     </div>
 
-    <div id="fs-overlay">
-        <button id="start-btn" style="background: var(--gold); padding: 20px 40px;">ИГРАТЬ (Full Screen)</button>
+    <div id="start-overlay">
+        <button id="start-btn" style="pointer-events: auto;">ЗАПУСТИТЬ 3D ИГРУ</button>
     </div>
 
-    <div id="game-container">
-        <div id="status">Нажмите "КРУТИТЬ"</div>
-        
-        <div id="cylinder-container">
-            </div>
-
-        <div class="controls">
+    <div id="ui-layer">
+        <div id="status">Нажмите «КРУТИТЬ»</div>
+        <div class="btn-container">
             <button id="spin-btn">Крутить</button>
-            <button id="fire-btn" disabled>Спустить курок</button>
+            <button id="fire-btn" disabled>Выстрел</button>
         </div>
     </div>
 
-    <script>
-        const cylinder = document.getElementById('cylinder-container');
-        const spinBtn = document.getElementById('spin-btn');
-        const fireBtn = document.getElementById('fire-btn');
-        const statusText = document.getElementById('status');
-        const fsOverlay = document.getElementById('fs-overlay');
-        const startBtn = document.getElementById('start-btn');
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        let bulletPosition = -1;
-        let currentChamber = 0;
+        let scene, camera, renderer, drum, chambers = [];
+        let bulletPos = -1;
+        let currentPos = 0;
         let isSpinning = false;
 
-        // Создаем визуальные каморы
-        for (let i = 0; i < 6; i++) {
-            const chamber = document.createElement('div');
-            chamber.className = 'chamber';
-            const angle = (i * 60) * (Math.PI / 180);
-            const radius = 70;
-            const x = Math.round(radius * Math.cos(angle));
-            const y = Math.round(radius * Math.sin(angle));
-            chamber.style.transform = `translate(${x}px, ${y}px)`;
-            cylinder.appendChild(chamber);
+        const statusText = document.getElementById('status');
+        const spinBtn = document.getElementById('spin-btn');
+        const fireBtn = document.getElementById('fire-btn');
+
+        // Инициализация 3D
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 4, 8);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Свет
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xffffff, 1);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
+
+            // Создание барабана (Группа объектов)
+            drum = new THREE.Group();
+
+            // Основной цилиндр барабана
+            const drumGeo = new THREE.CylinderGeometry(2, 2, 2.5, 32);
+            const drumMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+            const drumMesh = new THREE.Mesh(drumGeo, drumMat);
+            drum.add(drumMesh);
+
+            // Создаем 6 отверстий (камор)
+            for (let i = 0; i < 6; i++) {
+                const holeGeo = new THREE.CylinderGeometry(0.5, 0.5, 2.6, 16);
+                const holeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                const hole = new THREE.Mesh(holeGeo, holeMat);
+                
+                const angle = (i / 6) * Math.PI * 2;
+                hole.position.x = Math.cos(angle) * 1.2;
+                hole.position.z = Math.sin(angle) * 1.2;
+                drum.add(hole);
+                chambers.push(angle);
+            }
+
+            scene.add(drum);
+            animate();
         }
 
-        // Полноэкранный режим
-        startBtn.addEventListener('click', () => {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
-            }
-            // Попытка заблокировать ориентацию (работает не во всех браузерах)
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(e => console.log("Orientation lock not supported"));
-            }
-            fsOverlay.style.display = 'none';
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Логика вращения
-        spinBtn.addEventListener('click', () => {
+        // Логика игры
+        document.getElementById('start-btn').onclick = () => {
+            document.getElementById('start-overlay').style.display = 'none';
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            init3D();
+        };
+
+        spinBtn.onclick = () => {
             if (isSpinning) return;
-            
             isSpinning = true;
             fireBtn.disabled = true;
             statusText.innerText = "Барабан вращается...";
-            
-            // Рандомная позиция пули (0-5)
-            bulletPosition = Math.floor(Math.random() * 6);
-            currentChamber = 0;
 
-            // Анимация вращения (несколько полных оборотов + рандом)
-            const extraDegrees = 1800 + (Math.floor(Math.random() * 6) * 60);
-            cylinder.style.transform = `rotate(${extraDegrees}deg)`;
+            bulletPos = Math.floor(Math.random() * 6);
+            currentPos = 0;
 
-            setTimeout(() => {
-                isSpinning = false;
-                fireBtn.disabled = false;
-                statusText.innerText = "Готов?";
-                // Сбрасываем угол визуально для чистоты следующего вращения
-                cylinder.style.transition = 'none';
-                cylinder.style.transform = 'rotate(0deg)';
-                setTimeout(() => cylinder.style.transition = 'transform 1s cubic-bezier(0.1, 0.7, 0.1, 1)', 50);
-            }, 1000);
-        });
+            const rotations = Math.PI * 10 + (bulletPos * (Math.PI * 2 / 6)); 
+            const startTime = performance.now();
+            const duration = 2000;
 
-        // Логика выстрела
-        fireBtn.addEventListener('click', () => {
-            if (currentChamber === bulletPosition) {
-                statusText.innerText = "💥 БАБАХ! ВЫ ПРОИГРАЛИ!";
-                statusText.style.color = "var(--accent-color)";
-                fireBtn.disabled = true;
-                vibratePhone(500);
+            function rotateAnim(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3); // Выход из анимации плавнее
                 
-                setTimeout(() => {
-                    statusText.style.color = "white";
-                    statusText.innerText = "Нажмите 'КРУТИТЬ'";
-                }, 3000);
-            } else {
-                statusText.innerText = "*Клик*... Вам повезло.";
-                currentChamber++;
-                vibratePhone(50);
-                
-                if (currentChamber >= 6) {
-                    statusText.innerText = "Пули нет. Крутите снова.";
-                    fireBtn.disabled = true;
+                drum.rotation.y = ease * rotations;
+
+                if (progress < 1) {
+                    requestAnimationFrame(rotateAnim);
+                } else {
+                    isSpinning = false;
+                    fireBtn.disabled = false;
+                    statusText.innerText = "Твой ход...";
+                    // Сбросим угол для логики выстрелов
+                    drum.rotation.y = drum.rotation.y % (Math.PI * 2);
                 }
             }
-        });
+            requestAnimationFrame(rotateAnim);
+        };
 
-        function vibratePhone(ms) {
-            if (navigator.vibrate) {
-                navigator.vibrate(ms);
+        fireBtn.onclick = () => {
+            if (currentPos === bulletPos) {
+                statusText.innerText = "💥 БАБАХ!";
+                statusText.style.color = "#ff4444";
+                fireBtn.disabled = true;
+                if(navigator.vibrate) navigator.vibrate(500);
+            } else {
+                statusText.innerText = "*Клик*";
+                currentPos++;
+                // Немного поворачиваем барабан к следующей каморе
+                drum.rotation.y += (Math.PI * 2 / 6);
+                if(navigator.vibrate) navigator.vibrate(50);
             }
-        }
+        };
+
     </script>
 </body>
 </html>
