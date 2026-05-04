@@ -1,247 +1,461 @@
-﻿<script type="module">
-import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STAKES: Definitive Edition</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; color: white; user-select: none; }
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #1a1a1a, #000); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; text-align: center; }
+        h1 { font-size: 3.5rem; color: #ff0000; text-shadow: 0 0 20px #f00; margin: 10px; }
+        p { color: #888; margin-bottom: 30px; }
+        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 50px; pointer-events: auto; }
+        button { padding: 15px 35px; font-size: 1.2rem; font-family: inherit; background: #111; color: #fff; border: 2px solid #444; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        button:hover { background: #ff0000; color: #000; border-color: #fff; }
+        button:disabled { opacity: 0.2; cursor: default; }
+        #status { text-align: center; font-size: 1.8rem; padding-top: 40px; text-shadow: 2px 2px 5px #000; height: 60px; text-transform: uppercase; }
+        #damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; display: none; overflow: hidden; }
+        .blood { position: absolute; background: #700; border-radius: 50%; filter: blur(10px); opacity: 0.8; }
+        #orientation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: none; justify-content: center; align-items: center; text-align: center; }
+        @media (orientation: portrait) { #orientation { display: flex; } }
+        #mute-btn { position: fixed; top: 20px; right: 20px; z-index: 30; pointer-events: auto; padding: 10px 20px; font-size: 1.5rem; background: rgba(0,0,0,0.7); border: 1px solid #444; color: #fff; cursor: pointer; }
+    </style>
+</head>
+<body>
 
-// ---------- SAFE ATTACH ----------
-function safeAttach(parent, child) {
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scale = new THREE.Vector3();
-    child.matrixWorld.decompose(pos, quat, scale);
-    parent.add(child);
-    child.position.copy(parent.worldToLocal(pos));
-    child.quaternion.copy(quat);
-}
+    <div id="orientation"><h2>ПЕРЕВЕРНИТЕ УСТРОЙСТВО</h2></div>
 
-// ---------- SCENE ----------
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x050508, 2, 12);
+    <div id="menu">
+        <h1>STAKES</h1>
+        <p>КРУТИ. ПЕРЕДАВАЙ. ВЫЖИВАЙ.</p>
+        <button id="start-btn">ПРИНЯТЬ ПАРИ</button>
+    </div>
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(0,1.6,2.5);
+    <div id="game-over">
+        <h1 id="go-title">КОНЕЦ</h1>
+        <button id="restart-btn">ИГРАТЬ СНОВА</button>
+    </div>
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+    <div id="damage-overlay"></div>
 
-// ---------- LIGHT ----------
-const mainLight = new THREE.PointLight(0xffccaa,1.2,10);
-mainLight.position.set(0,3,1);
-scene.add(mainLight);
+    <div id="ui-layer">
+        <div id="status">ОЖИДАНИЕ...</div>
+        <div class="controls" id="controls">
+            <button id="take-btn" style="display:none;">ВЗЯТЬ ПИСТОЛЕТ</button>
+            <button id="spin-btn">КРУТИТЬ</button>
+            <button id="shoot-btn">ВЫСТРЕЛ</button>
+        </div>
+    </div>
 
-// ---------- AUDIO ----------
-let audioCtx, bgOsc;
+    <button id="mute-btn">🔊</button>
 
-const Sound = {
-    init(){
-        if(audioCtx) return;
-        audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-        this.start();
-    },
-    start(){
-        if(bgOsc) return;
-        const g = audioCtx.createGain();
-        bgOsc = audioCtx.createOscillator();
-        bgOsc.type='sawtooth';
-        bgOsc.frequency.value=45;
-        g.gain.value=0.04;
-        bgOsc.connect(g);
-        g.connect(audioCtx.destination);
-        bgOsc.start();
-    },
-    play(type,pos=null){
-        if(!audioCtx) return;
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.connect(g); g.connect(audioCtx.destination);
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        if(type==='click'){
-            o.frequency.value=800;
-            g.gain.value=0.2;
-            o.start(); o.stop(audioCtx.currentTime+0.1);
+        // --- Вспомогательная функция безопасного прикрепления объектов ---
+        function safeAttach(parent, child) {
+            const pos = new THREE.Vector3();
+            const quat = new THREE.Quaternion();
+            const scale = new THREE.Vector3();
+            child.matrixWorld.decompose(pos, quat, scale);
+            parent.add(child);
+            child.position.copy(parent.worldToLocal(pos));
+            child.quaternion.copy(quat);
         }
 
-        if(type==='shot'){
-            o.type='square';
-            o.frequency.value=60;
-            g.gain.value=1;
-            g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+1);
-            o.start(); o.stop(audioCtx.currentTime+1);
+        // --- SCENE ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x050508, 2, 12);
 
-            if(pos){
-                const flash=new THREE.PointLight(0xffaa55,3,4);
-                flash.position.copy(pos);
-                scene.add(flash);
-                setTimeout(()=>scene.remove(flash),100);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1.6, 2.5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        renderer.domElement.id = 'game-canvas';
+
+        // --- LIGHT ---
+        const mainLight = new THREE.PointLight(0xffccaa, 1.2, 10);
+        mainLight.position.set(0, 3, 1);
+        mainLight.castShadow = true;
+        scene.add(mainLight);
+
+        // --- AUDIO ---
+        let audioCtx, bgOsc;
+        const Sound = {
+            init() {
+                if (audioCtx) return;
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                this.start();
+            },
+            start() {
+                if (bgOsc) return;
+                const g = audioCtx.createGain();
+                bgOsc = audioCtx.createOscillator();
+                bgOsc.type = 'sawtooth';
+                bgOsc.frequency.value = 45;
+                g.gain.value = 0.04;
+                bgOsc.connect(g);
+                g.connect(audioCtxDestination());
+                bgOsc.start();
+            },
+            stop() {
+                if (bgOsc) {
+                    try { bgOsc.stop(); } catch(e) {}
+                    bgOsc = null;
+                }
+            },
+            play(type, pos = null) {
+                if (!audioCtx) return;
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.connect(g); g.connect(audioCtx.destination);
+
+                if (type === 'click') {
+                    o.frequency.value = 800;
+                    g.gain.value = 0.2;
+                    o.start(); o.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'shot') {
+                    o.type = 'square';
+                    o.frequency.value = 60;
+                    g.gain.value = 1;
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+                    o.start(); o.stop(audioCtx.currentTime + 1);
+
+                    if (pos) {
+                        const flash = new THREE.PointLight(0xffaa55, 3, 4);
+                        flash.position.copy(pos);
+                        scene.add(flash);
+                        setTimeout(() => scene.remove(flash), 100);
+                    }
+                } else if (type === 'spin') {
+                    for (let i = 0; i < 15; i++) setTimeout(() => this.play('click'), i * 60);
+                }
+            },
+            toggleMute() {
+                if (!audioCtx) return;
+                if (audioCtx.state === 'running') {
+                    audioCtx.suspend();
+                } else {
+                    audioCtx.resume();
+                }
+            }
+        };
+
+        function CtxDestination() {
+            return audioCtx ? audioCtx.destination : null;
+        }
+
+        // --- OBJECTS ---
+        let gunGroup, cylinderMesh, enemyArm, enemyJaw;
+        let clockCtx, clockTex;
+        let bulletPos = 0, currentChamber = 0, state = 'MENU';
+        let gunTargetPos = new THREE.Vector3();
+        let gunTargetRot = new THREE.Euler();
+        let shakeOffset = new THREE.Vector3();
+
+        // --- BUILD ---
+        function buildRoom() {
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.BackSide });
+            const room = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), wallMat);
+            room.position.y = 3;
+            scene.add(room);
+
+            const table = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2), new THREE.MeshStandardMaterial({ color: 0x150d08 }));
+            table.position.set(0, 0.9, 0.5);
+            table.receiveShadow = true;
+            scene.add(table);
+
+            const win = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.5), new THREE.MeshBasicMaterial({ color: 0x050510 }));
+            win.position.set(0, 2.5, -4.9);
+            scene.add(win);
+
+            const moon = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({ color: 0xffffcc }));
+            moon.position.set(0.4, 2.8, -5.5);
+            scene.add(moon);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 64;
+            clockCtx = canvas.getContext('2d');
+            clockTex = new THREE.CanvasTexture(canvas);
+            const clock = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), new THREE.MeshBasicMaterial({ map: clockTex }));
+            clock.position.set(-2, 3.2, -4.8);
+            scene.add(clock);
+        }
+
+        function buildEnemy() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), mat);
+            body.position.y = 1.5;
+            group.add(body);
+
+            enemyJaw = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.5), mat);
+            enemyJaw.position.set(0, 2.25, 0);
+            group.add(enemyJaw);
+
+            enemyArm = new THREE.Group();
+            enemyArm.position.set(0.5, 2.0, 0.1);
+            const armM = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.8, 0.15), mat);
+            armM.position.y = -0.4;
+            enemyArm.add(armM);
+            group.add(enemyArm);
+
+            group.position.z = -1.2;
+            scene.add(group);
+        }
+
+        function buildGun() {
+            gunGroup = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.8, roughness: 0.2 });
+
+            const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.4), mat);
+            barrel.position.z = 0.2;
+            gunGroup.add(barrel);
+
+            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.15, 12), mat);
+            cylinderMesh.rotation.x = Math.PI / 2;
+            gunGroup.add(cylinderMesh);
+
+            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.08), new THREE.MeshStandardMaterial({ color: 0x2a1a0a }));
+            grip.position.set(0, -0.15, -0.1);
+            gunGroup.add(grip);
+
+            scene.add(gunGroup);
+            updateGunPlacement('TABLE_ENEMY');
+        }
+
+        // --- PLACEMENT ---
+        function updateGunPlacement(type) {
+            if (type === 'TABLE_ENEMY') {
+                safeAttach(scene, gunGroup);
+                gunTargetPos.set(0, 1, -0.2);
+                gunTargetRot.set(0, Math.PI / 2, 0);
+            } else if (type === 'TABLE_PLAYER') {
+                safeAttach(scene, gunGroup);
+                gunTargetPos.set(0, 1, 1.2);
+                gunTargetRot.set(0, -Math.PI / 2, 0);
+            } else if (type === 'PLAYER_HAND') {
+                safeAttach(camera, gunGroup);
+                gunTargetPos.set(0.3, -0.3, -0.6);
+                gunTargetRot.set(0, Math.PI, 0);
+            } else if (type === 'PLAYER_AIM') {
+                safeAttach(camera, gunGroup);
+                gunTargetPos.set(0, -0.1, -0.4);
+                gunTargetRot.set(0, 0, 0);
+            } else if (type === 'ENEMY_HAND') {
+                safeAttach(enemyArm, gunGroup);
+                gunTargetPos.set(0, -0.9, 0);
+                gunTargetRot.set(Math.PI / 2, 0, 0);
             }
         }
-    }
-};
 
-// ---------- OBJECTS ----------
-let gunGroup,cylinderMesh,enemyArm,enemyJaw;
-let clockCtx,clockTex;
-let bulletPos=0,currentChamber=0,state='MENU';
-let gunTargetPos=new THREE.Vector3();
-let gunTargetRot=new THREE.Euler();
+        // --- GAME ---
+        function resetGame() {
+            const overlay = document.getElementById('damage-overlay');
+            overlay.innerHTML = '';
+            overlay.style.display = 'none';
 
-const shakeOffset=new THREE.Vector3();
+            document.getElementById('menu').style.display = 'flex';
+            document.getElementById('game-over').style.display = 'none';
 
-// ---------- BUILD ----------
-function buildRoom(){
-    const canvas=document.createElement('canvas');
-    canvas.width=128; canvas.height=64;
-    clockCtx=canvas.getContext('2d');
-    clockTex=new THREE.CanvasTexture(canvas);
-}
-
-function buildEnemy(){
-    const group=new THREE.Group();
-    const mat=new THREE.MeshStandardMaterial({color:0x0a0a0a});
-
-    const body=new THREE.Mesh(new THREE.BoxGeometry(0.8,1.2,0.5),mat);
-    body.position.y=1.5;
-    group.add(body);
-
-    enemyJaw=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.15,0.5),mat);
-    enemyJaw.position.y=2.25;
-    group.add(enemyJaw);
-
-    enemyArm=new THREE.Group();
-    enemyArm.position.set(0.5,2,0.1);
-    group.add(enemyArm);
-
-    group.position.z=-1.2;
-    scene.add(group);
-}
-
-function buildGun(){
-    gunGroup=new THREE.Group();
-    const mat=new THREE.MeshStandardMaterial({color:0x222});
-
-    const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.4),mat);
-    barrel.position.z=0.2;
-    gunGroup.add(barrel);
-
-    cylinderMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.15,12),mat);
-    cylinderMesh.rotation.x=Math.PI/2;
-    gunGroup.add(cylinderMesh);
-
-    scene.add(gunGroup);
-}
-
-// ---------- PLACEMENT ----------
-function updateGunPlacement(type){
-    if(type==='TABLE'){
-        safeAttach(scene,gunGroup);
-        gunTargetPos.set(0,1,0);
-    }
-    if(type==='PLAYER'){
-        safeAttach(camera,gunGroup);
-        gunTargetPos.set(0,-0.2,-0.5);
-    }
-    if(type==='ENEMY'){
-        safeAttach(enemyArm,gunGroup);
-        gunTargetPos.set(0,-0.9,0);
-    }
-}
-
-// ---------- GAME ----------
-function startGame(){
-    Sound.init();
-
-    if(audioCtx.state==='suspended'){
-        audioCtx.resume();
-    }
-
-    currentChamber=Math.floor(Math.random()*6);
-    bulletPos=Math.floor(Math.random()*6);
-
-    enemyTurn();
-}
-
-function enemyTurn(){
-    state='ENEMY';
-    updateGunPlacement('ENEMY');
-
-    setTimeout(()=>{
-        if(currentChamber===bulletPos){
-            const p=new THREE.Vector3();
-            enemyArm.getWorldPosition(p);
-            Sound.play('shot',p);
-        }else{
-            Sound.play('click');
-            currentChamber++;
-            playerTurn();
+            currentChamber = 0;
+            bulletPos = Math.floor(Math.random() * 6);
+            state = 'MENU';
+            Sound.stop();
+            updateGunPlacement('TABLE_ENEMY');
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('status').innerText = '';
         }
-    },1000);
-}
 
-function playerTurn(){
-    state='PLAYER';
-    updateGunPlacement('PLAYER');
-}
+        function startGame() {
+            Sound.init();
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('damage-overlay').style.display = 'none';
 
-window.shoot=()=>{
-    state='PLAYER_AIMING';
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
 
-    setTimeout(()=>{
-        if(currentChamber===bulletPos){
-            const p=new THREE.Vector3();
-            gunGroup.getWorldPosition(p);
-            Sound.play('shot',p);
-
-            camera.position.z+=0.2;
-            setTimeout(()=>camera.position.z-=0.2,100);
-
-        }else{
-            Sound.play('click');
-            currentChamber++;
+            currentChamber = 0;
+            bulletPos = Math.floor(Math.random() * 6);
             enemyTurn();
         }
-    },500);
-};
 
-// ---------- LOOP ----------
-function animate(){
-    requestAnimationFrame(animate);
+        function enemyTurn() {
+            state = 'ENEMY';
+            document.getElementById('status').innerText = "ДИЛЕР ХОДИТ...";
+            updateGunPlacement('ENEMY_HAND');
 
-    if(state==='PLAYER_AIMING'){
-        shakeOffset.x+=(Math.random()-0.5)*0.02;
-        shakeOffset.y+=(Math.random()-0.5)*0.02;
+            setTimeout(() => {
+                enemyArm.rotation.x = -1.6;
+                setTimeout(() => {
+                    if (currentChamber === bulletPos) {
+                        const p = new THREE.Vector3();
+                        enemyArm.getWorldPosition(p);
+                        Sound.play('shot', p);
+                        finishGame(true);
+                    } else {
+                        Sound.play('click');
+                        currentChamber++;
+                        handoverToPlayer();
+                    }
+                }, 1000);
+            }, 1000);
+        }
 
-        shakeOffset.multiplyScalar(0.9);
-        shakeOffset.clamp(
-            new THREE.Vector3(-0.05,-0.05,-0.05),
-            new THREE.Vector3(0.05,0.05,0.05)
-        );
+        function handoverToPlayer() {
+            enemyArm.rotation.x = 0;
+            updateGunPlacement('TABLE_ENEMY');
+            setTimeout(() => {
+                updateGunPlacement('TABLE_PLAYER');
+                document.getElementById('status').innerText = "ВАШ ЧЕРЕД";
+                const ctrl = document.getElementById('controls');
+                ctrl.style.display = 'flex';
+                document.getElementById('take-btn').style.display = 'block';
+                document.getElementById('spin-btn').style.display = 'none';
+                document.getElementById('shoot-btn').style.display = 'none';
+            }, 800);
+        }
 
-        camera.position.set(0+shakeOffset.x,1.6+shakeOffset.y,2.5);
-    }else{
-        camera.position.lerp(new THREE.Vector3(0,1.6,2.5),0.1);
-    }
+        document.getElementById('take-btn').onclick = () => {
+            Sound.play('click');
+            updateGunPlacement('PLAYER_HAND');
+            document.getElementById('take-btn').style.display = 'none';
+            document.getElementById('spin-btn').style.display = 'block';
+            document.getElementById('shoot-btn').style.display = 'block';
+            state = 'PLAYER_READY';
+            document.getElementById('status').innerText = "ВАШ ВЫБОР";
+        };
 
-    if(clockCtx){
-        clockCtx.fillStyle='#000';
-        clockCtx.fillRect(0,0,128,64);
-        clockCtx.fillStyle='#f00';
-        clockCtx.font='20px monospace';
-        clockCtx.fillText(new Date().toLocaleTimeString(),10,40);
-        clockTex.needsUpdate=true;
-    }
+        document.getElementById('spin-btn').onclick = () => {
+            Sound.play('spin');
+            document.getElementById('spin-btn').disabled = true;
+            let spins = 0;
+            const int = setInterval(() => {
+                cylinderMesh.rotation.y += 0.6;
+                spins++;
+                if (spins > 20) {
+                    clearInterval(int);
+                    bulletPos = Math.floor(Math.random() * 6);
+                    currentChamber = 0;
+                    document.getElementById('spin-btn').disabled = false;
+                    document.getElementById('status').innerText = "БАРАБАН ПРОКРУЧЕН";
+                }
+            }, 60);
+        };
 
-    mainLight.intensity=Math.max(0.8,Math.min(1.4,mainLight.intensity*(0.98+Math.random()*0.04)));
+        window.shoot = () => {
+            state = 'PLAYER_AIMING';
+            updateGunPlacement('PLAYER_AIM');
+            document.getElementById('controls').style.display = 'none';
 
-    gunGroup.position.lerp(gunTargetPos,0.1);
-    gunGroup.quaternion.slerp(new THREE.Quaternion().setFromEuler(gunTargetRot),0.1);
+            setTimeout(() => {
+                if (currentChamber === bulletPos) {
+                    const p = new THREE.Vector3();
+                    gunGroup.getWorldPosition(p);
+                    Sound.play('shot', p);
 
-    renderer.render(scene,camera);
-}
+                    camera.position.z += 0.2;
+                    setTimeout(() => camera.position.z -= 0.2, 100);
+                    showBlood();
+                    finishGame(false);
+                } else {
+                    Sound.play('click');
+                    currentChamber++;
+                    document.getElementById('status').innerText = "ОСЕЧКА";
+                    setTimeout(enemyTurn, 1000);
+                }
+            }, 800);
+        };
 
-// ---------- START ----------
-buildRoom();
-buildEnemy();
-buildGun();
-animate();
+        document.getElementById('shoot-btn').onclick = window.shoot;
 
-window.startGame=startGame;
-</script>
+        function showBlood() {
+            const overlay = document.getElementById('damage-overlay');
+            overlay.style.display = 'block';
+            overlay.innerHTML = '';
+            for (let i = 0; i < 15; i++) {
+                const b = document.createElement('div');
+                b.className = 'blood';
+                b.style.width = b.style.height = (Math.random() * 100 + 80) + 'px';
+                b.style.left = Math.random() * 100 + '%';
+                b.style.top = Math.random() * 100 + '%';
+                overlay.appendChild(b);
+            }
+        }
+
+        function finishGame(win) {
+            state = 'END';
+            setTimeout(() => {
+                document.getElementById('game-over').style.display = 'flex';
+                document.getElementById('go-title').innerText = win ? "ВЫ ПОБЕДИЛИ" : "ВЫ МЕРТВЫ";
+                document.getElementById('go-title').style.color = win ? "#0f0" : "#f00";
+                Sound.stop();
+            }, 1500);
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (state === 'PLAYER_AIMING') {
+                shakeOffset.x += (Math.random() - 0.5) * 0.02;
+                shakeOffset.y += (Math.random() - 0.5) * 0.02;
+                shakeOffset.multiplyScalar(0.9);
+                shakeOffset.clamp(
+                    new THREE.Vector3(-0.05, -0.05, -0.05),
+                    new THREE.Vector3(0.05, 0.05, 0.05)
+                );
+                camera.position.set(0 + shakeOffset.x, 1.6 + shakeOffset.y, 2.5);
+            } else {
+                shakeOffset.set(0, 0, 0);
+                camera.position.lerp(new THREE.Vector3(0, 1.6, 2.5), 0.1);
+            }
+
+            if (clockCtx) {
+                clockCtx.fillStyle = '#000';
+                clockCtx.fillRect(0, 0, 128, 64);
+                clockCtx.fillStyle = '#f00';
+                clockCtx.font = '20px monospace';
+                clockCtx.fillText(new Date().toLocaleTimeString(), 10, 40);
+                if (clockTex) clockTex.needsUpdate = true;
+            }
+
+            mainLight.intensity = Math.max(0.8, Math.min(1.4, mainLight.intensity * (0.98 + Math.random() * 0.04)));
+
+            gunGroup.position.lerp(gunTargetPos, 0.1);
+            gunGroup.quaternion.slerp(new THREE.Quaternion().setFromEuler(gunTargetRot), 0.1);
+
+            renderer.render(scene, camera);
+        }
+
+        // --- START ---
+        buildRoom();
+        buildEnemy();
+        buildGun();
+        animate();
+
+        document.getElementById('start-btn').onclick = startGame;
+        document.getElementById('restart-btn').onclick = resetGame;
+
+        document.getElementById('mute-btn').onclick = () => {
+            Sound.toggleMute();
+            document.getElementById('mute-btn').textContent = (audioCtx && audioCtx.state === 'running') ? '🔊' : '🔇';
+        };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+</body>
+</html>
