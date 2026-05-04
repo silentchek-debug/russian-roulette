@@ -9,7 +9,7 @@
         #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
         #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #1a1a1a, #000); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; text-align: center; }
-        #game-over { display: none; } /* Исправление: скрываем экран конца игры при запуске */
+        #game-over { display: none; }
         h1 { font-size: clamp(2rem, 10vw, 4rem); color: #ff0000; text-shadow: 0 0 20px #f00; margin: 10px; letter-spacing: 5px; }
         .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 50px; pointer-events: auto; }
         button { padding: 15px 35px; font-size: 1.2rem; font-family: inherit; background: #111; color: #fff; border: 2px solid #444; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
@@ -20,6 +20,7 @@
         .blood { position: absolute; background: #600; border-radius: 50%; filter: blur(8px); opacity: 0.7; }
         .crack { position: absolute; background: rgba(255,255,255,0.5); box-shadow: 0 0 10px rgba(255,255,255,0.3); }
         .top-btn { padding: 10px 15px; font-size: 1.5rem; background: rgba(0,0,0,0.7); border: 1px solid #444; color: #fff; cursor: pointer; pointer-events: auto; }
+        .btn-group { position: fixed; top: 20px; right: 20px; z-index: 30; pointer-events: auto; display: flex; gap: 10px; }
     </style>
 </head>
 <body>
@@ -46,7 +47,10 @@
         </div>
     </div>
 
-    <button id="mute-btn" style="position:fixed; top:20px; right:20px; z-index:30;" class="top-btn">🔊</button>
+    <div class="btn-group">
+        <button id="mute-btn" class="top-btn">🔊</button>
+        <button id="fs-btn" class="top-btn">⛶</button>
+    </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
@@ -131,7 +135,7 @@
 
         function buildRoom() {
             const wallMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, side: THREE.BackSide, roughness: 1 });
-            const room = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), constMat);
+            const room = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), wallMat); // Исправлена опечатка (wallMat вместо constMat)
             room.position.y = 2.5; room.receiveShadow = true; scene.add(room);
 
             const table = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2.2), new THREE.MeshStandardMaterial({ color: 0x1a110a, roughness: 0.8 }));
@@ -163,9 +167,6 @@
             const clock = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), new THREE.MeshBasicMaterial({ map: clockTex }));
             clock.position.set(-2.5, 3, -3.9); scene.add(clock);
         }
-        
-        // Переменная для контекста, забытая в buildRoom
-        let clockCtx;
 
         function buildEnemy() {
             enemyGroup = new THREE.Group();
@@ -255,8 +256,6 @@
             else if (type === 'PLAYER_AIM') { safeAttach(camera, gunGroup); gunTargetPos.set(0, -0.1, -0.35); gunTargetRot.set(0, 0, 0); }
             else if (type === 'ENEMY_HAND') { safeAttach(enemyArm, gunGroup); gunTargetPos.set(0, -1.05, 0); gunTargetRot.set(Math.PI/2, 0, 0); }
         }
-
-        let shellGroup;
 
         function spawnShell() {
             const shellGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.06, 8);
@@ -444,6 +443,20 @@
             if (audioCtx.state === 'running') { audioCtx.suspend(); document.getElementById('mute-btn').innerText = '🔇'; }
             else { audioCtx.resume(); document.getElementById('mute-btn').innerText = '🔊'; }
         };
+
+        // --- FULLSCREEN ---
+        const fsBtn = document.getElementById('fs-btn');
+        if (fsBtn) {
+            fsBtn.onclick = () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`Ошибка при переходе в полноэкранный режим: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            };
+        }
 
         init();
     </script>
