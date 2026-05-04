@@ -3,200 +3,607 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Russian Roulette 3D</title>
+    <title>Roulette: The Room</title>
     <style>
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background: #000;
-            font-family: sans-serif; color: white;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; color: white; user-select: none; }
+        
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        
+        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        #game-over { display: none; background: rgba(50,0,0,0.9); }
+        
+        h1 { font-size: 3rem; color: #ff3333; text-shadow: 0 0 10px red; margin-bottom: 10px; text-align: center;}
+        p { font-size: 1.2rem; color: #aaa; text-align: center; max-width: 600px; }
+        
+        button { padding: 15px 40px; font-size: 1.5rem; font-family: inherit; font-weight: bold; background: #333; color: white; border: 2px solid #555; cursor: pointer; text-transform: uppercase; transition: 0.2s; pointer-events: auto; }
+        button:hover { background: #555; border-color: white; }
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; pointer-events: none; }
 
-        /* Интерфейс поверх 3D */
-        #ui-layer {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            display: flex; flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            pointer-events: none; /* Чтобы можно было крутить камеру, если нужно */
-            padding: 20px; box-sizing: border-box;
-        }
+        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 30px; pointer-events: auto;}
+        
+        #status { text-align: center; font-size: 1.5rem; padding-top: 20px; text-shadow: 2px 2px 0 #000; color: #fff; }
 
-        .btn-container {
-            display: flex; gap: 20px; pointer-events: auto;
-            margin-bottom: 30px;
-        }
+        /* Эффект разбитого экрана и крови */
+        #damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; display: none; background: radial-gradient(circle, transparent 20%, rgba(150,0,0,0.8) 80%); }
+        .crack { position: absolute; width: 2px; background: rgba(255,255,255,0.8); box-shadow: 0 0 5px white; transform-origin: top; }
+        .blood-splatter { position: absolute; background: #800000; border-radius: 50%; filter: blur(2px); }
 
-        button {
-            padding: 15px 40px; font-size: 1.2rem; font-weight: bold;
-            border: none; border-radius: 8px; cursor: pointer;
-            text-transform: uppercase; transition: 0.2s;
-        }
-
-        #spin-btn { background: #d4af37; color: #000; }
-        #fire-btn { background: #e74c3c; color: #fff; }
-        button:disabled { opacity: 0.3; }
-
-        #status {
-            font-size: 2rem; text-align: center;
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
-            margin-top: 20px;
-        }
-
-        #orientation-overlay, #start-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 100;
-            display: flex; justify-content: center; align-items: center;
-            text-align: center; flex-direction: column;
-        }
-
-        @media (orientation: landscape) { #orientation-overlay { display: none; } }
-        @media (orientation: portrait) { #orientation-overlay { display: flex; } }
+        /* Ландшафтный режим */
+        #orientation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
+        @media (orientation: landscape) { #orientation { display: none; } }
     </style>
 </head>
 <body>
 
-    <div id="orientation-overlay">
-        <h2>🔄 Переверните телефон в ландшафтный режим</h2>
+    <div id="orientation">
+        <h2>Пожалуйста, переверните устройство в ландшафтный режим</h2>
     </div>
 
-    <div id="start-overlay">
-        <button id="start-btn" style="pointer-events: auto;">ЗАПУСТИТЬ 3D ИГРУ</button>
+    <div id="menu">
+        <h1>СМЕРТЕЛЬНАЯ ИГРА</h1>
+        <p>1 пуля. 6 камор. Вы и Дилер.<br>Осмотрите револьвер, крутите барабан.</p>
+        <button id="start-btn">Начать игру</button>
     </div>
+
+    <div id="game-over">
+        <h1 id="go-title">ВЫ МЕРТВЫ</h1>
+        <button id="restart-btn" style="margin-top: 20px;">Играть снова</button>
+    </div>
+
+    <div id="damage-overlay"></div>
 
     <div id="ui-layer">
-        <div id="status">Нажмите «КРУТИТЬ»</div>
-        <div class="btn-container">
+        <div id="status"></div>
+        <div class="controls" id="controls">
+            <button id="examine-btn">Осмотр</button>
             <button id="spin-btn">Крутить</button>
-            <button id="fire-btn" disabled>Выстрел</button>
+            <button id="shoot-btn">Стрелять (в себя)</button>
         </div>
     </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        let scene, camera, renderer, drum, chambers = [];
+        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+        let scene, camera, renderer, light;
+        let clockCanvas, clockCtx, clockTex;
+        let enemyGroup, enemyArm, gunGroup, cylinderMesh;
+        let shellGroup;
+        
+        // Аудио контекст (создается после клика)
+        let audioCtx;
+        
+        // Логика игры
         let bulletPos = -1;
-        let currentPos = 0;
-        let isSpinning = false;
+        let currentChamber = 0;
+        let totalShots = 0;
+        let state = 'MENU'; // MENU, PLAYER, ENEMY, ANIMATING, DEAD
 
-        const statusText = document.getElementById('status');
-        const spinBtn = document.getElementById('spin-btn');
-        const fireBtn = document.getElementById('fire-btn');
+        const uiStatus = document.getElementById('status');
+        const controls = document.getElementById('controls');
+        const damageOverlay = document.getElementById('damage-overlay');
 
-        // Инициализация 3D
+        // --- ПРОЦЕДУРНОЕ АУДИО (Синтезатор) ---
+        const SoundFX = {
+            init: () => { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); },
+            playGunshot: () => {
+                if(!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                
+                // Шум для выстрела
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const noiseFilter = audioCtx.createBiquadFilter();
+                noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 1000;
+                noise.connect(noiseFilter); noiseFilter.connect(gain);
+                noise.start();
+            },
+            playClick: () => {
+                if(!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            },
+            playSpin: () => {
+                if(!audioCtx) return;
+                let time = audioCtx.currentTime;
+                for(let i=0; i<10; i++) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle'; osc.frequency.value = 400 + Math.random()*200;
+                    gain.gain.setValueAtTime(0.1, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(time); osc.stop(time + 0.05);
+                    time += 0.05 + Math.random()*0.05;
+                }
+            },
+            playHeartbeat: (intensity) => {
+                if(!audioCtx || state === 'DEAD' || state === 'MENU') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(40, audioCtx.currentTime);
+                gain.gain.setValueAtTime(intensity * 0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                
+                // Пульсация света
+                if(light) {
+                    light.intensity = 1 + (intensity * 2);
+                    setTimeout(() => light.intensity = 1, 150);
+                }
+            }
+        };
+
+        // Хартбит луп
+        setInterval(() => {
+            if(state === 'PLAYER' || state === 'ENEMY') {
+                let risk = totalShots / 5; // от 0 до 1
+                SoundFX.playHeartbeat(0.2 + risk);
+            }
+        }, 1000 - (totalShots * 150)); // Ускоряется с каждым выстрелом
+
+
+        // --- ИНИЦИАЛИЗАЦИЯ THREE.JS ---
         function init3D() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050505);
+            scene.fog = new THREE.Fog(0x050505, 5, 20);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 4, 8);
-            camera.lookAt(0, 0, 0);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.5, 3); // Позиция игрока
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
+            renderer.shadowMap.enabled = true;
+            document.body.insertBefore(renderer.domElement, document.body.firstChild);
+            renderer.domElement.id = 'game-canvas';
 
-            // Свет
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambientLight);
-            const pointLight = new THREE.PointLight(0xffffff, 1);
-            pointLight.position.set(5, 5, 5);
-            scene.add(pointLight);
+            // Освещение
+            scene.add(new THREE.AmbientLight(0x222233));
+            light = new THREE.PointLight(0xffddaa, 1, 15);
+            light.position.set(0, 3, 0);
+            light.castShadow = true;
+            scene.add(light);
 
-            // Создание барабана (Группа объектов)
-            drum = new THREE.Group();
+            // Лампочка
+            const bulbGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+            bulb.position.set(0, 3, 0);
+            scene.add(bulb);
 
-            // Основной цилиндр барабана
-            const drumGeo = new THREE.CylinderGeometry(2, 2, 2.5, 32);
-            const drumMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
-            const drumMesh = new THREE.Mesh(drumGeo, drumMat);
-            drum.add(drumMesh);
+            buildRoom();
+            buildEnemy();
+            buildGun();
 
-            // Создаем 6 отверстий (камор)
-            for (let i = 0; i < 6; i++) {
-                const holeGeo = new THREE.CylinderGeometry(0.5, 0.5, 2.6, 16);
-                const holeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-                const hole = new THREE.Mesh(holeGeo, holeMat);
-                
-                const angle = (i / 6) * Math.PI * 2;
-                hole.position.x = Math.cos(angle) * 1.2;
-                hole.position.z = Math.sin(angle) * 1.2;
-                drum.add(hole);
-                chambers.push(angle);
-            }
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
 
-            scene.add(drum);
             animate();
         }
 
+        // --- СОЗДАНИЕ ОКРУЖЕНИЯ ---
+        function buildRoom() {
+            // Комната
+            const roomGeo = new THREE.BoxGeometry(10, 6, 10);
+            const roomMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.BackSide, roughness: 0.9 });
+            const room = new THREE.Mesh(roomGeo, roomMat);
+            room.position.y = 3;
+            room.receiveShadow = true;
+            scene.add(room);
+
+            // Стол
+            const tableGeo = new THREE.BoxGeometry(4, 1, 2);
+            const tableMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.8 });
+            const table = new THREE.Mesh(tableGeo, tableMat);
+            table.position.set(0, 0.5, 1);
+            table.receiveShadow = true; table.castShadow = true;
+            scene.add(table);
+
+            // Окно (просто вырез - имитация черным квадратом на стене и зданиями за ним)
+            const windowBgGeo = new THREE.PlaneGeometry(3, 2);
+            const windowBgMat = new THREE.MeshBasicMaterial({ color: 0x000011 }); // Ночное небо
+            const windowBg = new THREE.Mesh(windowBgGeo, windowBgMat);
+            windowBg.position.set(0, 3, -4.9);
+            scene.add(windowBg);
+
+            // Здания за окном (Декорации)
+            const bldgMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            for(let i=0; i<3; i++) {
+                const bGeo = new THREE.BoxGeometry(0.5 + Math.random(), 2 + Math.random()*2, 0.5);
+                const bMesh = new THREE.Mesh(bGeo, bldgMat);
+                bMesh.position.set(-1 + i*1, 1 + bGeo.parameters.height/2, -5.5 + Math.random());
+                scene.add(bMesh);
+            }
+
+            // Настенные часы (Canvas Texture)
+            clockCanvas = document.createElement('canvas');
+            clockCanvas.width = 256; clockCanvas.height = 128;
+            clockCtx = clockCanvas.getContext('2d');
+            clockTex = new THREE.CanvasTexture(clockCanvas);
+            
+            const clockGeo = new THREE.PlaneGeometry(1.5, 0.75);
+            const clockMat = new THREE.MeshBasicMaterial({ map: clockTex });
+            const clockMesh = new THREE.Mesh(clockGeo, clockMat);
+            clockMesh.position.set(-3, 3, -4.9);
+            scene.add(clockMesh);
+        }
+
+        // Обновление часов каждый кадр
+        function updateClock() {
+            if(!clockCtx) return;
+            clockCtx.fillStyle = '#050505';
+            clockCtx.fillRect(0, 0, 256, 128);
+            clockCtx.font = '60px "Courier New"';
+            clockCtx.fillStyle = '#ff0000';
+            clockCtx.textAlign = 'center';
+            clockCtx.textBaseline = 'middle';
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+            clockCtx.fillText(timeStr, 128, 64);
+            clockTex.needsUpdate = true;
+        }
+
+        // --- СОЗДАНИЕ ВРАГА ---
+        function buildEnemy() {
+            enemyGroup = new THREE.Group();
+            enemyGroup.position.set(0, 0, -1);
+            scene.add(enemyGroup);
+
+            const mat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+            
+            // Тело
+            const bodyGeo = new THREE.BoxGeometry(1.2, 1.5, 0.8);
+            const body = new THREE.Mesh(bodyGeo, mat);
+            body.position.y = 1.75; body.castShadow = true;
+            enemyGroup.add(body);
+
+            // Голова
+            const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const head = new THREE.Mesh(headGeo, mat);
+            head.position.y = 2.9; head.castShadow = true;
+            enemyGroup.add(head);
+
+            // Лицо (просто светящиеся глаза)
+            const eyeGeo = new THREE.PlaneGeometry(0.2, 0.1);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.2, 0, 0.41);
+            const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.2, 0, 0.41);
+            head.add(eyeL); head.add(eyeR);
+
+            // Аксессуар: Цилиндр (Шляпа)
+            const hatGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16);
+            const hatBrimGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.05, 16);
+            const hat = new THREE.Group();
+            const hatMesh1 = new THREE.Mesh(hatGeo, mat); hatMesh1.position.y = 0.3;
+            const hatMesh2 = new THREE.Mesh(hatBrimGeo, mat);
+            hat.add(hatMesh1); hat.add(hatMesh2);
+            hat.position.y = 0.4; head.add(hat);
+            hat.rotation.x = -0.1;
+
+            // Правая рука (с шарниром в плече)
+            enemyArm = new THREE.Group();
+            enemyArm.position.set(-0.7, 2.3, 0); // Позиция плеча
+            enemyGroup.add(enemyArm);
+
+            const armGeo = new THREE.BoxGeometry(0.3, 1.2, 0.3);
+            const armMesh = new THREE.Mesh(armGeo, mat);
+            armMesh.position.y = -0.6; // Смещение чтобы вращалась от плеча
+            armMesh.castShadow = true;
+            enemyArm.add(armMesh);
+
+            // Пальцы (Стилизованная клешня)
+            const fingerGeo = new THREE.BoxGeometry(0.1, 0.3, 0.1);
+            const f1 = new THREE.Mesh(fingerGeo, mat); f1.position.set(-0.1, -1.3, 0.1); enemyArm.add(f1);
+            const f2 = new THREE.Mesh(fingerGeo, mat); f2.position.set(0.1, -1.3, 0.1); enemyArm.add(f2);
+            const f3 = new THREE.Mesh(fingerGeo, mat); f3.position.set(0, -1.3, -0.1); enemyArm.add(f3);
+        }
+
+        // --- СОЗДАНИЕ ОРУЖИЯ ---
+        function buildGun() {
+            gunGroup = new THREE.Group();
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9, roughness: 0.2 });
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
+
+            // Ствол
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 16), metalMat);
+            barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.1, 0.2);
+            gunGroup.add(barrel);
+
+            // Рукоять
+            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.25, 0.1), woodMat);
+            grip.position.set(0, -0.05, -0.15); grip.rotation.x = 0.3;
+            gunGroup.add(grip);
+
+            // Барабан
+            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 16), metalMat);
+            cylinderMesh.rotation.x = Math.PI / 2;
+            gunGroup.add(cylinderMesh);
+
+            scene.add(gunGroup);
+            resetGunPosition(); // Кладем на стол
+            
+            // Группа для гильз
+            shellGroup = new THREE.Group();
+            scene.add(shellGroup);
+        }
+
+        function resetGunPosition() {
+            gunGroup.position.set(0, 1.05, 1);
+            gunGroup.rotation.set(0, Math.PI / 2, 0); // Лежит боком
+            scene.attach(gunGroup); // Открепляем от рук/камеры
+        }
+
+
+        // --- АНИМАЦИИ ---
+        let animTarget = { rotX: 0, rotY: 0, rotZ: 0, posX: 0, posY: 0, posZ: 0 };
+        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+
+        function updateGunAnimation() {
+            if(state === 'DEAD' || state === 'MENU') return;
+            // Плавный переход оружия
+            gunGroup.position.x = lerp(gunGroup.position.x, animTarget.posX, 0.1);
+            gunGroup.position.y = lerp(gunGroup.position.y, animTarget.posY, 0.1);
+            gunGroup.position.z = lerp(gunGroup.position.z, animTarget.posZ, 0.1);
+            
+            // Кватернионы для вращения (упрощенно)
+            gunGroup.rotation.x = lerp(gunGroup.rotation.x, animTarget.rotX, 0.1);
+            gunGroup.rotation.y = lerp(gunGroup.rotation.y, animTarget.rotY, 0.1);
+            gunGroup.rotation.z = lerp(gunGroup.rotation.z, animTarget.rotZ, 0.1);
+        }
+
+        // --- ЛОГИКА ИГРЫ ---
+        
+        function startGame() {
+            SoundFX.init();
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            damageOverlay.style.display = 'none';
+            damageOverlay.innerHTML = '';
+            
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            
+            bulletPos = Math.floor(Math.random() * 6);
+            currentChamber = 0;
+            totalShots = 0;
+            
+            playerTurn();
+        }
+
+        function playerTurn() {
+            state = 'PLAYER';
+            controls.style.display = 'flex';
+            uiStatus.innerText = "ВАШ ХОД";
+            
+            // Берем оружие в руку (прикрепляем к камере)
+            camera.attach(gunGroup);
+            animTarget = { posX: 0.2, posY: -0.2, posZ: -0.5, rotX: 0, rotY: Math.PI, rotZ: 0 }; // Дуло от себя
+            
+            document.getElementById('spin-btn').disabled = false;
+        }
+
+        function enemyTurn() {
+            state = 'ENEMY';
+            controls.style.display = 'none';
+            uiStatus.innerText = "ХОД ДИЛЕРА...";
+            
+            // Оружие отдается врагу
+            enemyArm.attach(gunGroup);
+            // Позиция в руке врага
+            animTarget = { posX: 0, posY: -1.4, posZ: 0, rotX: 0, rotY: 0, rotZ: 0 };
+            
+            setTimeout(() => {
+                // Враг крутит барабан (иногда)
+                if(Math.random() > 0.5 && totalShots > 0) {
+                    uiStatus.innerText = "Дилер крутит барабан...";
+                    spinCylinder(() => { executeEnemyShot(); });
+                } else {
+                    executeEnemyShot();
+                }
+            }, 1500);
+        }
+
+        function executeEnemyShot() {
+            // Враг поднимает руку к голове
+            let armLiftInterval = setInterval(() => {
+                enemyArm.rotation.x -= 0.1;
+                if(enemyArm.rotation.x <= -Math.PI/2) {
+                    clearInterval(armLiftInterval);
+                    // Направляет дуло себе в висок (упрощенная математика поворота оружия в руке)
+                    animTarget.rotY = Math.PI / 2;
+                    animTarget.rotZ = Math.PI / 4;
+                    
+                    setTimeout(() => { pullTrigger(false); }, 1000);
+                }
+            }, 30);
+        }
+
+        function pullTrigger(isPlayer) {
+            state = 'ANIMATING';
+            controls.style.display = 'none';
+            totalShots++;
+
+            // Если стреляет игрок - поворачиваем дуло на себя!
+            if(isPlayer) {
+                animTarget.rotX = 0;
+                animTarget.rotY = 0; // Поворот дула к камере
+                animTarget.rotZ = 0;
+                animTarget.posX = 0;
+                animTarget.posY = -0.1;
+                animTarget.posZ = -0.3;
+            }
+
+            setTimeout(() => {
+                if(currentChamber === bulletPos) {
+                    // ВЫСТРЕЛ
+                    SoundFX.playGunshot();
+                    spawnShell();
+                    light.color.setHex(0xff0000); // Вспышка
+                    setTimeout(()=> light.color.setHex(0xffddaa), 100);
+
+                    if(isPlayer) {
+                        createScreenDamage();
+                        gameOver(false);
+                    } else {
+                        // Враг умирает (падает голова)
+                        enemyGroup.children[1].rotation.x = -Math.PI/4; 
+                        enemyArm.rotation.x = 0; // роняет руку
+                        setTimeout(() => resetGunPosition(), 500);
+                        gameOver(true);
+                    }
+                } else {
+                    // ОСЕЧКА
+                    SoundFX.playClick();
+                    currentChamber++;
+                    if(currentChamber >= 6) { uiStatus.innerText = "Пусто. Нужна перезарядка."; bulletPos = -1;}
+                    else { uiStatus.innerText = "*Клик*"; }
+                    
+                    setTimeout(() => {
+                        if(isPlayer) {
+                            enemyTurn();
+                        } else {
+                            // Враг опускает руку
+                            let armDropInterval = setInterval(() => {
+                                enemyArm.rotation.x += 0.1;
+                                if(enemyArm.rotation.x >= 0) {
+                                    clearInterval(armDropInterval);
+                                    enemyArm.rotation.x = 0;
+                                    playerTurn();
+                                }
+                            }, 30);
+                        }
+                    }, 1000);
+                }
+            }, isPlayer ? 500 : 0); // Небольшая задержка, чтобы игрок увидел направленный ствол
+        }
+
+        function spinCylinder(callback) {
+            SoundFX.playSpin();
+            document.getElementById('spin-btn').disabled = true;
+            
+            let spins = 20 + Math.floor(Math.random() * 10);
+            let spinInterval = setInterval(() => {
+                cylinderMesh.rotation.y += 0.5;
+                spins--;
+                if(spins <= 0) {
+                    clearInterval(spinInterval);
+                    bulletPos = Math.floor(Math.random() * 6);
+                    currentChamber = 0;
+                    totalShots = 0;
+                    if(callback) callback();
+                }
+            }, 50);
+        }
+
+        // --- ЭФФЕКТЫ ---
+
+        function spawnShell() {
+            const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8), new THREE.MeshBasicMaterial({color: 0xddaa00}));
+            gunGroup.getWorldPosition(shell.position);
+            scene.add(shell);
+            
+            // Примитивная физика падения
+            let velY = 0.05;
+            let fallInt = setInterval(() => {
+                shell.position.y += velY;
+                shell.position.x += 0.02;
+                shell.rotation.x += 0.2;
+                shell.rotation.z += 0.2;
+                velY -= 0.005; // гравитация
+                if(shell.position.y < 0.5) {
+                    clearInterval(fallInt);
+                    // Звук падения гильзы (простой клик)
+                    SoundFX.playClick();
+                }
+            }, 30);
+        }
+
+        function createScreenDamage() {
+            damageOverlay.style.display = 'block';
+            for(let i=0; i<5; i++) {
+                const crack = document.createElement('div');
+                crack.className = 'crack';
+                crack.style.height = (50 + Math.random()*150) + 'px';
+                crack.style.left = (Math.random() * 100) + '%';
+                crack.style.top = (Math.random() * 100) + '%';
+                crack.style.transform = `rotate(${Math.random()*360}deg)`;
+                damageOverlay.appendChild(crack);
+                
+                const blood = document.createElement('div');
+                blood.className = 'blood-splatter';
+                let size = 20 + Math.random()*80;
+                blood.style.width = size + 'px';
+                blood.style.height = size + 'px';
+                blood.style.left = (Math.random() * 100) + '%';
+                blood.style.top = (Math.random() * 100) + '%';
+                damageOverlay.appendChild(blood);
+            }
+        }
+
+        function gameOver(playerWon) {
+            state = 'DEAD';
+            setTimeout(() => {
+                document.getElementById('game-over').style.display = 'flex';
+                document.getElementById('go-title').innerText = playerWon ? "ДИЛЕР МЕРТВ. ВЫ ВЫЖИЛИ." : "ВЫ МЕРТВЫ";
+                document.getElementById('go-title').style.color = playerWon ? "#00ff00" : "#ff0000";
+            }, 2000);
+        }
+
+        // --- УПРАВЛЕНИЕ ---
+        document.getElementById('start-btn').onclick = startGame;
+        document.getElementById('restart-btn').onclick = () => location.reload();
+        
+        document.getElementById('shoot-btn').onclick = () => pullTrigger(true);
+        document.getElementById('spin-btn').onclick = () => spinCylinder();
+        
+        // Осмотр револьвера
+        let isExamining = false;
+        document.getElementById('examine-btn').onclick = () => {
+            isExamining = !isExamining;
+            if(isExamining) {
+                animTarget.rotX = Math.PI / 4;
+                animTarget.rotY = Math.PI / 2; // Боком
+                animTarget.posX = 0;
+            } else {
+                animTarget.rotX = 0;
+                animTarget.rotY = Math.PI; // Обратно от себя
+                animTarget.posX = 0.2;
+            }
+        };
+
+        // --- ГЛАВНЫЙ ЦИКЛ ---
         function animate() {
             requestAnimationFrame(animate);
+            updateClock();
+            if(gunGroup) updateGunAnimation();
             renderer.render(scene, camera);
         }
 
-        // Обработка изменения размера окна
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Логика игры
-        document.getElementById('start-btn').onclick = () => {
-            document.getElementById('start-overlay').style.display = 'none';
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-            init3D();
-        };
-
-        spinBtn.onclick = () => {
-            if (isSpinning) return;
-            isSpinning = true;
-            fireBtn.disabled = true;
-            statusText.innerText = "Барабан вращается...";
-
-            bulletPos = Math.floor(Math.random() * 6);
-            currentPos = 0;
-
-            const rotations = Math.PI * 10 + (bulletPos * (Math.PI * 2 / 6)); 
-            const startTime = performance.now();
-            const duration = 2000;
-
-            function rotateAnim(time) {
-                const elapsed = time - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const ease = 1 - Math.pow(1 - progress, 3); // Выход из анимации плавнее
-                
-                drum.rotation.y = ease * rotations;
-
-                if (progress < 1) {
-                    requestAnimationFrame(rotateAnim);
-                } else {
-                    isSpinning = false;
-                    fireBtn.disabled = false;
-                    statusText.innerText = "Твой ход...";
-                    // Сбросим угол для логики выстрелов
-                    drum.rotation.y = drum.rotation.y % (Math.PI * 2);
-                }
-            }
-            requestAnimationFrame(rotateAnim);
-        };
-
-        fireBtn.onclick = () => {
-            if (currentPos === bulletPos) {
-                statusText.innerText = "💥 БАБАХ!";
-                statusText.style.color = "#ff4444";
-                fireBtn.disabled = true;
-                if(navigator.vibrate) navigator.vibrate(500);
-            } else {
-                statusText.innerText = "*Клик*";
-                currentPos++;
-                // Немного поворачиваем барабан к следующей каморе
-                drum.rotation.y += (Math.PI * 2 / 6);
-                if(navigator.vibrate) navigator.vibrate(50);
-            }
-        };
-
+        init3D();
     </script>
 </body>
 </html>
