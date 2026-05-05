@@ -3,54 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>STAKES: Nightmare Edition</title>
+    <title>STAKES: Russian Roulette</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; color: #ccc; user-select: none; touch-action: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', monospace; color: #eee; user-select: none; touch-action: none; }
         #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #noise { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0.12; image-rendering: pixelated; }
-
+        #noise { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0.15; image-rendering: pixelated; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #1a0a0a, #000); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; text-align: center; }
-        #game-over { display: none; }
-        
-        h1 { font-size: clamp(2rem, 8vw, 4rem); color: #800; text-shadow: 0 0 15px #f00; margin: 10px; letter-spacing: 8px; font-weight: 900; }
-        #status { text-align: center; font-size: 1.2rem; padding-top: 40px; color: #888; text-transform: uppercase; letter-spacing: 4px; }
-        
-        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 40px; pointer-events: auto; }
-        
-        /* Стиль кнопок под ржавый металл */
-        button { 
-            padding: 15px 35px; font-size: 1rem; font-family: inherit; 
-            background: linear-gradient(145deg, #222, #111); color: #999; 
-            border: 1px solid #444; cursor: pointer; text-transform: uppercase; 
-            box-shadow: 4px 4px 10px #000; transition: 0.2s;
-        }
-        button:active { transform: translateY(2px); box-shadow: 2px 2px 5px #000; color: #ff0000; border-color: #800; }
-        
-        .top-btn { padding: 10px; font-size: 1.2rem; background: rgba(20,20,20,0.8); border: 1px solid #333; color: #666; cursor: pointer; pointer-events: auto; }
-        .btn-group { position: fixed; top: 15px; right: 15px; z-index: 30; display: flex; gap: 8px; }
-        
-        #damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; display: none; background: radial-gradient(circle, transparent, #500); }
+        #menu, #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        #game-over { display: none; background: radial-gradient(circle, #200, #000); }
+        h1 { font-size: 3rem; color: #600; text-shadow: 0 0 10px #f00; letter-spacing: 10px; margin: 20px; }
+        button { padding: 15px 40px; font-size: 1.2rem; font-family: inherit; background: #111; color: #888; border: 1px solid #333; cursor: pointer; text-transform: uppercase; transition: 0.2s; box-shadow: 0 5px 0 #000; }
+        button:active { transform: translateY(3px); box-shadow: 0 2px 0 #000; color: #f00; }
+        .controls { display: none; justify-content: center; gap: 20px; padding-bottom: 50px; pointer-events: auto; }
+        #status { text-align: center; font-size: 1.2rem; padding-top: 50px; text-transform: uppercase; letter-spacing: 5px; color: #444; }
+        .top-btn { padding: 10px; font-size: 1.5rem; background: rgba(0,0,0,0.5); border: 1px solid #222; color: #555; cursor: pointer; pointer-events: auto; }
+        .btn-group { position: fixed; top: 20px; right: 20px; z-index: 30; display: flex; gap: 10px; }
+        #blood-screen { position: absolute; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle, transparent, #700); opacity:0; pointer-events:none; z-index:15; transition: opacity 0.5s; }
     </style>
 </head>
 <body>
 
     <div id="menu">
         <h1>STAKES</h1>
-        <button id="start-btn">ВЗЯТЬ ПАРИ</button>
+        <button id="start-btn">ПОДПИСАТЬ КОНТРАКТ</button>
     </div>
 
     <div id="game-over">
-        <h1 id="go-title">КОНЕЦ</h1>
-        <button onclick="location.reload()">ЕЩЕ РАЗ</button>
+        <h1 id="go-title">ТЫ ПРОИГРАЛ</h1>
+        <button onclick="location.reload()">ЕЩЕ ОДНА ПОПЫТКА</button>
     </div>
 
-    <div id="damage-overlay"></div>
+    <div id="blood-screen"></div>
 
     <div id="ui-layer">
         <div id="status">...</div>
         <div class="controls" id="controls">
-            <button id="take-btn" style="display:none;">ВЗЯТЬ ОРУЖИЕ</button>
+            <button id="take-btn" style="display:none;">ВЗЯТЬ</button>
             <button id="spin-btn">КРУТИТЬ</button>
             <button id="shoot-btn">ВЫСТРЕЛ</button>
         </div>
@@ -67,37 +55,22 @@
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
         let scene, camera, renderer, gunGroup, cylinderMesh, enemyGroup, enemyArm, enemyHead;
-        let mainLight, ambientLight, spotLight;
+        let mainLight, ambientLight;
         let audioCtx, droneGain;
         let bulletPos = 0, currentChamber = 0, state = 'MENU';
         let gunTargetPos = new THREE.Vector3(), gunTargetRot = new THREE.Euler();
-        let enemyArmTargetRotX = 0;
+        let enemyArmTargetRot = new THREE.Euler();
+        let particles = [];
 
-        // ---------- ГЕНЕРАЦИЯ ГРЯЗНОЙ ТЕКСТУРЫ ----------
-        function createGrungeTexture(color1, color2) {
-            const canvas = document.createElement('canvas');
-            canvas.width = canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = color1;
-            ctx.fillRect(0, 0, 512, 512);
-            for(let i=0; i<5000; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? color2 : 'rgba(0,0,0,0.3)';
-                ctx.fillRect(Math.random()*512, Math.random()*512, Math.random()*4, Math.random()*4);
-            }
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            return tex;
-        }
-
-        // ---------- ЗВУК ----------
+        // ---------- ЗВУКОВОЙ ДВИЖОК ----------
         const Sound = {
             init() {
                 if (audioCtx) return;
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 droneGain = audioCtx.createGain();
                 const osc = audioCtx.createOscillator();
-                osc.type = 'brown'; 
-                droneGain.gain.value = 0.02;
+                osc.type = 'sine'; osc.frequency.value = 40;
+                droneGain.gain.value = 0.05;
                 osc.connect(droneGain); droneGain.connect(audioCtx.destination);
                 osc.start();
             },
@@ -106,92 +79,88 @@
                 const o = audioCtx.createOscillator();
                 const g = audioCtx.createGain();
                 o.connect(g); g.connect(audioCtx.destination);
-                if (type === 'click') { o.frequency.value = 400; g.gain.value = 0.05; o.start(); o.stop(audioCtx.currentTime + 0.05); }
-                if (type === 'shot') { o.type='square'; o.frequency.value = 60; g.gain.value = 0.4; g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8); o.start(); o.stop(audioCtx.currentTime + 0.8); }
-                if (type === 'spin') { for(let i=0; i<12; i++) setTimeout(()=>this.play('click'), i*60); }
+                if (type === 'click') { o.frequency.value = 500; g.gain.value = 0.1; o.start(); o.stop(audioCtx.currentTime+0.05); }
+                if (type === 'spin') { for(let i=0; i<15; i++) setTimeout(()=>this.play('click'), i*50); }
+                if (type === 'shot') { 
+                    o.type = 'square'; o.frequency.setValueAtTime(100, audioCtx.currentTime);
+                    o.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+                    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                    o.start(); o.stop(audioCtx.currentTime + 0.8);
+                }
+                if (type === 'shell') { o.frequency.value = 1200; g.gain.value = 0.03; o.start(); o.stop(audioCtx.currentTime+0.1); }
             }
         };
 
+        // ---------- ЧАСТИЦЫ (КРОВЬ / ДЫМ) ----------
+        function spawnParticles(pos, color, count, speed) {
+            for(let i=0; i<count; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.02, 0.02, 0.02),
+                    new THREE.MeshBasicMaterial({ color: color })
+                );
+                p.position.copy(pos);
+                p.userData = {
+                    vel: new THREE.Vector3((Math.random()-0.5)*speed, (Math.random()-0.2)*speed, (Math.random()-0.5)*speed),
+                    life: 1.0
+                };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
         function init() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050505, 0.15);
+            scene.fog = new THREE.Fog(0x000000, 2, 10);
 
-            camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
             camera.position.set(0, 1.6, 2.5);
 
             renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
-            renderer.setClearColor(0x000000);
             document.body.appendChild(renderer.domElement);
 
-            const wallTex = createGrungeTexture('#151515', '#222');
-            const tableTex = createGrungeTexture('#1a100a', '#2a1a10');
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
 
-            // СВЕТ (как на фото)
-            ambientLight = new THREE.AmbientLight(0xff0000, 0.05); // Кровавый оттенок теней
-            scene.add(ambientLight);
-
-            mainLight = new THREE.PointLight(0xffeebb, 0.8, 8); // Тусклая лампа
-            mainLight.position.set(0, 2.7, 0.5);
-            mainLight.castShadow = true;
-            scene.add(mainLight);
-
-            // КОРПУС ЛАМПЫ
-            const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
-            lamp.position.copy(mainLight.position);
-            scene.add(lamp);
-
-            // КОМНАТА
-            const roomMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.8 });
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), roomMat);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1 });
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), wallMat);
             floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
 
-            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 6), roomMat);
-            backWall.position.set(0, 2, -3); backWall.receiveShadow = true; scene.add(backWall);
-
-            // СТОЛ
-            const table = new THREE.Mesh(
-                new THREE.BoxGeometry(3.5, 0.1, 2.5),
-                new THREE.MeshStandardMaterial({ map: tableTex, roughness: 0.6 })
-            );
+            const table = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2), new THREE.MeshStandardMaterial({color: 0x1a1a1a}));
             table.position.set(0, 0.9, 0.8); table.receiveShadow = true; scene.add(table);
+
+            mainLight = new THREE.PointLight(0xffffff, 0.8, 10);
+            mainLight.position.set(0, 3, 1); scene.add(mainLight);
+            ambientLight = new THREE.AmbientLight(0x220000, 0.3); scene.add(ambientLight);
 
             buildDealer();
             buildGun();
             animate();
-            initNoiseFX();
+            initNoise();
         }
 
         function buildDealer() {
             enemyGroup = new THREE.Group();
-            const rustMat = new THREE.MeshStandardMaterial({ color: 0x22110a, roughness: 0.9, metalness: 0.3 });
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-
-            // Торс
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.3), rustMat);
-            body.position.y = 1.4; enemyGroup.add(body);
-
-            // Голова (более сложная)
-            enemyHead = new THREE.Group();
-            const cran = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.3), rustMat);
-            enemyHead.add(cran);
+            const rust = new THREE.MeshStandardMaterial({ color: 0x22110a });
             
-            // Глаза
-            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04), eyeMat);
-            eyeL.position.set(-0.08, 0.1, 0.15); enemyHead.add(eyeL);
-            const eyeR = eyeL.clone(); eyeR.position.x = 0.08; enemyHead.add(eyeR);
-            
-            // Свет от глаз (слабое свечение на стол)
-            const eyeLight = new THREE.PointLight(0xff0000, 0.5, 2);
-            eyeLight.position.set(0, 0, 0.2); enemyHead.add(eyeLight);
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.2, 0.3), rust);
+            body.position.y = 1.3; enemyGroup.add(body);
 
+            enemyHead = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 0.25), rust);
             enemyHead.position.y = 2.1; enemyGroup.add(enemyHead);
 
-            // Рука
+            const eyes = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), new THREE.MeshBasicMaterial({color: 0xff0000}));
+            eyes.position.set(0, 0.05, 0.13); enemyHead.add(eyes);
+
             enemyArm = new THREE.Group();
-            enemyArm.position.set(0.4, 1.8, 0.1);
-            const armM = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), rustMat);
+            enemyArm.position.set(0.4, 1.9, 0.1);
+            const armM = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), rust);
             armM.position.y = -0.3; enemyArm.add(armM);
             enemyGroup.add(enemyArm);
 
@@ -201,56 +170,82 @@
 
         function buildGun() {
             gunGroup = new THREE.Group();
-            const metal = new THREE.MeshStandardMaterial({ color: 0x111, metalness: 0.9, roughness: 0.2 });
-            const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), metal);
-            gunGroup.add(barrel);
-            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8), metal);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 });
+            
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), mat);
+            barrel.rotation.x = Math.PI/2; barrel.position.set(0, 0.05, 0.3); gunGroup.add(barrel);
+            
+            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.18, 12), mat);
             cylinderMesh.rotation.x = Math.PI/2; gunGroup.add(cylinderMesh);
+
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.2), mat);
+            frame.position.z = -0.1; gunGroup.add(frame);
+
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.25, 0.12), new THREE.MeshStandardMaterial({color:0x221108}));
+            handle.position.set(0, -0.15, -0.15); handle.rotation.x = 0.3; gunGroup.add(handle);
+
             scene.add(gunGroup);
-            updatePlacement('TABLE_ENEMY');
+            updateGun('TABLE');
         }
 
-        function updatePlacement(type) {
+        function updateGun(mode) {
             scene.updateMatrixWorld(true);
-            if (type === 'TABLE_ENEMY') { attach(scene, gunGroup); gunTargetPos.set(0, 1, 0.5); gunTargetRot.set(0, 1.5, 0); }
-            if (type === 'ENEMY_HAND') { attach(enemyArm, gunGroup); gunTargetPos.set(0, -0.7, 0.1); gunTargetRot.set(1.5, 0, 0); }
-            if (type === 'PLAYER_HAND') { attach(camera, gunGroup); gunTargetPos.set(0.4, -0.4, -0.7); gunTargetRot.set(0, 0, 0); }
-            if (type === 'PLAYER_AIM') { attach(camera, gunGroup); gunTargetPos.set(0, -0.1, -0.4); gunTargetRot.set(0, 0, 0); }
+            if (mode === 'TABLE') {
+                attachTo(scene, gunGroup); gunTargetPos.set(0.2, 1, 0.6); gunTargetRot.set(0, 1.2, 0);
+            } else if (mode === 'PLAYER_HAND') {
+                attachTo(camera, gunGroup); gunTargetPos.set(0.4, -0.4, -0.7); gunTargetRot.set(0, 0, 0);
+            } else if (mode === 'PLAYER_AIM') {
+                attachTo(camera, gunGroup); gunTargetPos.set(0, -0.1, -0.4); gunTargetRot.set(0, 0, 0);
+            } else if (mode === 'ENEMY_HAND') {
+                attachTo(enemyArm, gunGroup); gunTargetPos.set(0, -0.8, 0.1); gunTargetRot.set(Math.PI/2, 0, 0);
+            }
         }
 
-        function attach(parent, child) {
-            const pos = new THREE.Vector3(); const quat = new THREE.Quaternion();
-            child.getWorldPosition(pos); child.getWorldQuaternion(quat);
+        function attachTo(parent, child) {
+            const worldPos = new THREE.Vector3(); const worldQuat = new THREE.Quaternion();
+            child.getWorldPosition(worldPos); child.getWorldQuaternion(worldQuat);
             parent.add(child);
-            child.position.copy(parent.worldToLocal(pos));
-            child.quaternion.copy(quat);
+            child.position.copy(parent.worldToLocal(worldPos));
+            child.quaternion.copy(worldQuat);
         }
 
+        // ---------- ЛОГИКА ТУРОВ ----------
         function enemyTurn() {
             state = 'ENEMY';
-            document.getElementById('status').innerText = "ОЧЕРЕДЬ ДИЛЕРА";
-            updatePlacement('ENEMY_HAND');
-            enemyArmTargetRotX = 0;
-            
+            document.getElementById('status').innerText = "ДИЛЕР ЗАБИРАЕТ ОРУЖИЕ";
+            updateGun('ENEMY_HAND');
+            enemyArmTargetRot.set(0, 0, 0);
+
             setTimeout(() => {
                 Sound.play('spin');
-                let s = 0; const i = setInterval(() => { cylinderMesh.rotation.z += 1; if(s++>12) clearInterval(i); }, 60);
+                document.getElementById('status').innerText = "ДИЛЕР КРУТИТ БАРАБАН";
+                let s = 0; const i = setInterval(() => { cylinderMesh.rotation.z += 1.2; if(s++>15) clearInterval(i); }, 50);
+                
                 setTimeout(() => {
-                    enemyArmTargetRotX = -Math.PI * 0.7; // Поднимает вверх
+                    document.getElementById('status').innerText = "ДИЛЕР ПРОВЕРЯЕТ СЕБЯ";
+                    enemyArmTargetRot.set(-Math.PI*0.8, 0, -0.5); // К голове
+                    
                     setTimeout(() => {
-                        if (currentChamber === bulletPos) { Sound.play('shot'); location.reload(); }
-                        else { 
-                            Sound.play('click'); currentChamber = (currentChamber + 1) % 6; 
-                            enemyArmTargetRotX = 0; setTimeout(playerTurn, 1000); 
+                        if (currentChamber === bulletPos) {
+                            Sound.play('shot');
+                            const headPos = new THREE.Vector3(); enemyHead.getWorldPosition(headPos);
+                            spawnParticles(headPos, 0x880000, 40, 0.1);
+                            state = 'END'; setTimeout(() => location.reload(), 3000);
+                        } else {
+                            Sound.play('click');
+                            currentChamber = (currentChamber + 1) % 6;
+                            Sound.play('shell');
+                            enemyArmTargetRot.set(0,0,0);
+                            setTimeout(playerTurn, 1000);
                         }
-                    }, 1000);
-                }, 1000);
+                    }, 1500);
+                }, 1500);
             }, 1000);
         }
 
         function playerTurn() {
-            state = 'PLAYER';
-            updatePlacement('TABLE_ENEMY');
+            state = 'PLAYER_WAIT';
+            updateGun('TABLE');
             document.getElementById('status').innerText = "ТВОЙ ХОД";
             document.getElementById('controls').style.display = 'flex';
             document.getElementById('take-btn').style.display = 'block';
@@ -259,58 +254,100 @@
         }
 
         document.getElementById('take-btn').onclick = () => {
-            updatePlacement('PLAYER_HAND');
+            updateGun('PLAYER_HAND');
             document.getElementById('take-btn').style.display = 'none';
             document.getElementById('spin-btn').style.display = 'block';
             document.getElementById('shoot-btn').style.display = 'block';
         };
 
         document.getElementById('spin-btn').onclick = () => {
-            Sound.play('spin'); gunGroup.visible = false;
-            setTimeout(() => { bulletPos = Math.floor(Math.random()*6); currentChamber = 0; gunGroup.visible = true; }, 1000);
+            Sound.play('spin');
+            let s = 0; const i = setInterval(() => { cylinderMesh.rotation.z += 1.2; if(s++>15) clearInterval(i); }, 50);
+            bulletPos = Math.floor(Math.random()*6); currentChamber = 0;
         };
 
         document.getElementById('shoot-btn').onclick = () => {
-            updatePlacement('PLAYER_AIM');
+            updateGun('PLAYER_AIM');
             document.getElementById('controls').style.display = 'none';
             setTimeout(() => {
-                if (currentChamber === bulletPos) { Sound.play('shot'); document.getElementById('damage-overlay').style.display='block'; setTimeout(()=>location.reload(), 2000); }
-                else { Sound.play('click'); currentChamber = (currentChamber + 1) % 6; enemyTurn(); }
-            }, 800);
+                if (currentChamber === bulletPos) {
+                    Sound.play('shot');
+                    document.getElementById('blood-screen').style.opacity = '1';
+                    document.getElementById('go-title').innerText = "ТЫ МЕРТВ";
+                    setTimeout(() => document.getElementById('game-over').style.display = 'flex', 1000);
+                } else {
+                    Sound.play('click');
+                    const barrelPos = new THREE.Vector3(); gunGroup.getWorldPosition(barrelPos);
+                    spawnParticles(barrelPos, 0xaaaaaa, 5, 0.02); // Дым
+                    currentChamber = (currentChamber + 1) % 6;
+                    Sound.play('shell');
+                    setTimeout(enemyTurn, 1000);
+                }
+            }, 1000);
         };
 
+        // ---------- ОСНОВНОЙ ЦИКЛ ----------
         function animate() {
             requestAnimationFrame(animate);
-            const t = Date.now() * 0.001;
-            
-            // Мерцание лампы
-            mainLight.intensity = 0.7 + Math.random() * 0.3;
-            
-            // Движение руки
-            enemyArm.rotation.x += (enemyArmTargetRotX - enemyArm.rotation.x) * 0.1;
-            
-            // Слежение головой
-            enemyHead.lookAt(camera.position.x, 1.6, camera.position.z);
+            const time = Date.now() * 0.001;
 
+            // Дрожание света
+            mainLight.intensity = 0.7 + Math.sin(time*10)*0.1;
+
+            // Плавные движения
             gunGroup.position.lerp(gunTargetPos, 0.1);
             gunGroup.quaternion.slerp(new THREE.Quaternion().setFromEuler(gunTargetRot), 0.1);
             
+            enemyArm.rotation.x += (enemyArmTargetRot.x - enemyArm.rotation.x) * 0.05;
+            enemyArm.rotation.z += (enemyArmTargetRot.z - enemyArm.rotation.z) * 0.05;
+
+            // Обновление частиц
+            for(let i = particles.length-1; i >= 0; i--) {
+                const p = particles[i];
+                p.position.add(p.userData.vel);
+                p.userData.vel.y -= 0.005; // Гравитация
+                p.userData.life -= 0.01;
+                p.scale.setScalar(p.userData.life);
+                if(p.userData.life <= 0) {
+                    scene.remove(p);
+                    particles.splice(i, 1);
+                }
+            }
+
             renderer.render(scene, camera);
-            updateNoiseFX();
+            updateNoise();
         }
 
-        // ШУМ VHS
-        const nC = document.getElementById('noise'); const nX = nC.getContext('2d');
-        function initNoiseFX() { nC.width = 256; nC.height = 256; }
-        function updateNoiseFX() {
-            const id = nX.createImageData(256, 256); const d = new Uint32Array(id.data.buffer);
-            for(let i=0; i<d.length; i++) if(Math.random()>0.9) d[i] = 0xff000000;
-            nX.putImageData(id, 0, 0);
+        // ---------- ВСПОМОГАТЕЛЬНОЕ ----------
+        function initNoise() {
+            const canvas = document.getElementById('noise');
+            canvas.width = canvas.height = 256;
+        }
+        function updateNoise() {
+            const canvas = document.getElementById('noise');
+            const ctx = canvas.getContext('2d');
+            const idata = ctx.createImageData(256, 256);
+            const buf = new Uint32Array(idata.data.buffer);
+            for(let i=0; i<buf.length; i++) if(Math.random()>0.95) buf[i] = 0xffffffff;
+            ctx.putImageData(idata, 0, 0);
         }
 
-        document.getElementById('start-btn').onclick = () => { Sound.init(); startGame(); };
-        function startGame() { document.getElementById('menu').style.display='none'; bulletPos=Math.floor(Math.random()*6); enemyTurn(); }
-        
+        document.getElementById('fs-btn').onclick = () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                screen.orientation.lock('landscape').catch(()=>{});
+            } else {
+                document.exitFullscreen();
+            }
+        };
+
+        document.getElementById('start-btn').onclick = () => {
+            Sound.init();
+            document.getElementById('menu').style.display = 'none';
+            bulletPos = Math.floor(Math.random()*6);
+            enemyTurn();
+        };
+
         init();
     </script>
 </body>
