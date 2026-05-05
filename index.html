@@ -14,7 +14,7 @@ body { margin:0; overflow:hidden; background:black; font-family:monospace; }
 @keyframes vhs{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
 #grain{
     position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:51;
-    background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3"/><feDisplacementMap in="SourceGraphic" scale="50"/></filter><rect width="100" height="100" filter="url(%23n)"/></svg>') repeat;
+    background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3"/><feDis[...]
     opacity:.15;
 }
 #ui{
@@ -22,14 +22,18 @@ body { margin:0; overflow:hidden; background:black; font-family:monospace; }
 }
 button{
     padding:12px 24px;margin:4px;font-size:16px;background:#111;color:#aaa;border:1px solid #444;
-    text-transform:uppercase;cursor:pointer;
+    text-transform:uppercase;cursor:pointer;transition:all .2s;
 }
-button:hover:not(:disabled){background:#300;color:#fff;border-color:#f00}
-button:disabled{opacity:.3}
+button:hover:not(:disabled){background:#300;color:#fff;border-color:#f00;box-shadow:0 0 10px #f00}
+button:disabled{opacity:.3;cursor:not-allowed}
+#fullscreenBtn{
+    position:fixed;top:20px;right:20px;z-index:20;padding:8px 16px;font-size:14px;
+}
 #speech{
     position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:30;
     padding:12px;background:rgba(0,0,0,.9);border:1px solid #444;border-radius:8px;
     max-width:300px;color:#fff;font-size:1.1rem;text-align:center;display:none;
+    text-shadow:0 0 10px rgba(255,0,0,.5);
 }
 #clock{
     position:fixed;top:20px;left:20px;padding:8px;background:rgba(20,0,0,.8);
@@ -45,6 +49,10 @@ button:disabled{opacity:.3}
     color:#fff;display:none;justify-content:center;align-items:center;font-size:2rem;
     text-transform:uppercase;text-shadow:0 0 20px #f00;
 }
+.hud-info{
+    position:fixed;bottom:120px;left:20px;color:#f00;font-size:0.9rem;z-index:10;
+    text-shadow:0 0 5px #f00;
+}
 </style>
 </head>
 <body>
@@ -53,6 +61,9 @@ button:disabled{opacity:.3}
 <div id="clock"></div>
 <div id="speech"></div>
 <div id="blood"></div>
+<button id="fullscreenBtn">FULLSCREEN</button>
+
+<div class="hud-info" id="hudInfo"></div>
 
 <div id="ui">
     <button id="startBtn">ПРИНЯТЬ ПАРИ</button>
@@ -86,8 +97,9 @@ scene.add(lamp);
 let gunGroup, cylMesh, bulletPos, currentChamber, state = 'MENU', ejectsLeft;
 let enemyGroup, enemyArm, enemyForearm, enemyHead, enemyEyeL, enemyEyeR;
 let audioCtx, bgOsc, selectedVoice;
-let windowAnimId = null; // Для отслеживания интервала окна
-let bgOscStarted = false; // Флаг для отслеживания состояния bgOsc
+let windowAnimId = null;
+let bgOscStarted = false;
+let gameStats = { enemyShots: 0, playerShots: 0, rounds: 0 };
 
 // ---------- ФУНКЦИИ ЗВУКА И ГОЛОСА ----------
 function createDistortionCurve(amount=400){
@@ -201,32 +213,60 @@ function spawnShellAndSmoke(pos){
     }
 }
 
-function say(text){
+function say(text, isEnemy=false){
     const el = document.getElementById('speech');
     el.textContent=text; el.style.display='block';
     try{
         if(window.speechSynthesis){
             const u = new SpeechSynthesisUtterance(text);
-            u.lang='ru-RU'; u.pitch=0.3; u.rate=0.75;
+            u.lang='ru-RU';
+            if(isEnemy){
+                u.pitch=0.4;
+                u.rate=0.6;
+            } else {
+                u.pitch=1.2;
+                u.rate=0.9;
+            }
             if(selectedVoice) u.voice = selectedVoice;
             speechSynthesis.speak(u);
         }
         if(audioCtx){
             const dur = text.length*0.09;
-            const osc = audioCtx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=65;
-            const gain = audioCtx.createGain(); gain.gain.value=0.4;
-            const dist = audioCtx.createWaveShaper(); dist.curve=createDistortionCurve(400); dist.oversample='4x';
-            const filt = audioCtx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900;
-            const sub = audioCtx.createOscillator(); sub.type='sine'; sub.frequency.value=35;
-            const subGain = audioCtx.createGain(); subGain.gain.value=0.25;
+            const osc = audioCtx.createOscillator();
+            osc.type='sawtooth';
+            osc.frequency.value = isEnemy ? 50 : 65;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.value = isEnemy ? 0.5 : 0.4;
+            
+            const dist = audioCtx.createWaveShaper();
+            dist.curve=createDistortionCurve(isEnemy ? 600 : 400);
+            dist.oversample='4x';
+            
+            const filt = audioCtx.createBiquadFilter();
+            filt.type='lowpass';
+            filt.frequency.value = isEnemy ? 700 : 900;
+            
+            const sub = audioCtx.createOscillator();
+            sub.type='sine';
+            sub.frequency.value = isEnemy ? 25 : 35;
+            
+            const subGain = audioCtx.createGain();
+            subGain.gain.value = isEnemy ? 0.4 : 0.25;
 
-            osc.connect(dist); dist.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination);
-            sub.connect(subGain); subGain.connect(audioCtx.destination);
+            osc.connect(dist);
+            dist.connect(filt);
+            filt.connect(gain);
+            gain.connect(audioCtx.destination);
+            sub.connect(subGain);
+            subGain.connect(audioCtx.destination);
 
-            osc.start(); sub.start();
+            osc.start();
+            sub.start();
             gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
             subGain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
-            osc.stop(audioCtx.currentTime+dur); sub.stop(audioCtx.currentTime+dur);
+            osc.stop(audioCtx.currentTime+dur);
+            sub.stop(audioCtx.currentTime+dur);
         }
     }catch(e){}
     setTimeout(()=>el.style.display='none',4000);
@@ -352,13 +392,20 @@ function updateGunPos(mode){
     requestAnimationFrame(anim);
 }
 
+function updateHUD(){
+    const info = document.getElementById('hudInfo');
+    info.innerHTML = `Раунд: ${gameStats.rounds + 1}<br>Ваши выстрелы: ${gameStats.playerShots}<br>Выстрелы врага: ${gameStats.enemyShots}`;
+}
+
 // ---------- ИГРОВАЯ ЛОГИКА ----------
 function endGame(won){
     state='END';
     document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
     document.getElementById('blood').style.opacity = won ? '0' : '1';
     document.getElementById('startBtn').style.display='inline';
-    alert(won ? 'ВЫ ПОБЕДИЛИ' : 'ВЫ МЕРТВЫ');
+    
+    const message = won ? 'ВЫ ПОБЕДИЛИ' : 'ВЫ МЕРТВЫ';
+    alert(message);
     
     // Безопасное отключение аудио
     if(audioCtx && audioCtx.state==='running'){
@@ -370,7 +417,6 @@ function endGame(won){
 }
 
 function startGame(){
-    // Защита от повторного клика
     if(state !== 'MENU' && state !== 'END') return;
     
     initAudio();
@@ -378,7 +424,9 @@ function startGame(){
         audioCtx.resume().catch(e=>console.log('Audio resume error:', e));
     }
     
-    // Гарантированно разные позиции для пули и текущей камеры
+    gameStats.rounds++;
+    updateHUD();
+    
     bulletPos = Math.floor(Math.random()*6);
     do {
         currentChamber = Math.floor(Math.random()*6);
@@ -387,22 +435,24 @@ function startGame(){
     ejectsLeft = 1;
     document.getElementById('startBtn').style.display='none';
     updateGunPos('TABLE');
+    say("Новая игра начинается...", true);
     enemyTurn();
 }
 
 function enemyTurn(){
     state='ENEMY';
+    gameStats.enemyShots++;
     document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
     updateGunPos('TABLE');
     setTimeout(()=> updateGunPos('ENEMY_HAND'),600);
     setTimeout(()=>{
         const risk = 1/(6-currentChamber);
         if(risk>0.35 && Math.random()>0.3){
-            say("Слишком предсказуемо... Перемешаем.");
+            say("Слишком предсказуемо... Перемешаем.", true);
             let spins=0;
             const iv = setInterval(()=>{ cylMesh.rotation.z+=1.2; if(++spins>20){clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; } },60);
         } else {
-            say(["Твой пот воняет страхом.","Надеюсь, твои мозги отмоются.","Крути, мразь."][Math.floor(Math.random()*3)]);
+            say(["Твой пот воняет страхом.","Надеюсь, твои мозги отмоются.","Я слышу твоё сердцебиение, червяк."][Math.floor(Math.random()*3)], true);
         }
         const startAim = performance.now();
         function animAim(now){
@@ -418,7 +468,7 @@ function enemyTurn(){
                     enemyGroup.rotation.x = -Math.PI/4;
                     enemyGroup.position.y -= .3;
                     enemyGroup.position.z += .2;
-                    say("А-а-гх...");
+                    say("А-а-гх...", true);
                     endGame(true);
                 } else {
                     playSound('click');
@@ -465,23 +515,24 @@ document.getElementById('takeBtn').onclick = ()=>{
 document.getElementById('spinBtn').onclick = ()=>{
     let s=0;
     const iv = setInterval(()=>{ cylMesh.rotation.z+=1.2; if(++s>15){clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; } },60);
-    say("Надейся на пустоту, червяк.");
+    say("Надейся на пустоту, червяк.", false);
 };
 
 document.getElementById('ejectBtn').onclick = ()=>{
     ejectsLeft--;
     document.getElementById('ejectBtn').style.display='none';
     if(currentChamber===bulletPos){
-        say("Ты выбросил патрон! Победа.");
+        say("Ты выбросил патрон! Победа.", false);
         endGame(true);
     } else {
         currentChamber++;
         playSound('click');
-        say("Пусто. Трусливый ход.");
+        say("Пусто. Трусливый ход.", false);
     }
 };
 
 document.getElementById('shootBtn').onclick = ()=>{
+    gameStats.playerShots++;
     updateGunPos('PLAYER_AIM');
     document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
     setTimeout(()=>{
@@ -496,6 +547,12 @@ document.getElementById('shootBtn').onclick = ()=>{
             enemyTurn();
         }
     },800);
+};
+
+document.getElementById('fullscreenBtn').onclick = ()=>{
+    const elem = document.documentElement;
+    const rfs = elem.requestFullscreen || elem.mozRequestFullScreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+    if(rfs) rfs.call(elem).catch(err => console.log('Fullscreen request failed:', err));
 };
 
 // ---------- ЦИКЛ ----------
@@ -523,9 +580,17 @@ window.addEventListener('resize',()=>{
 window.addEventListener('orientationchange', checkOrientation);
 checkOrientation();
 
+// Обработка выхода из полноэкрана
+document.addEventListener('fullscreenchange', ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+});
+
 buildScene();
 buildEnemy();
 buildGun();
+updateHUD();
 animate();
 </script>
 </body>
