@@ -1,706 +1,504 @@
 ﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
-    <title>STAKES: Nightmare AI</title>
-    <style>
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background: #000;
-            font-family: 'Courier New', monospace; color: #eee;
-            user-select: none; -webkit-user-select: none;
-        }
-        #vhs-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 50; pointer-events: none;
-            background: repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(0,0,0,0.1) 2px, transparent 4px);
-            animation: vhs-shift 0.08s infinite;
-        }
-        @keyframes vhs-shift { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
-        #grain-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 51; pointer-events: none;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.15"/></svg>');
-            opacity: 0.15;
-        }
-        #rotate-warning {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 999; color: #fff; display: none;
-            justify-content: center; align-items: center; font-size: 2rem;
-            text-transform: uppercase; text-shadow: 0 0 20px #f00;
-        }
-        #clock-window {
-            position: fixed; top: 20px; left: 20px;
-            padding: 10px; background: rgba(20,0,0,0.8);
-            border: 2px solid #500; font-size: 1.5rem;
-            color: #f00; z-index: 100; box-shadow: 0 0 15px #300;
-            pointer-events: none;
-        }
-        #dealer-speech {
-            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
-            padding: 15px; background: rgba(0,0,0,0.9);
-            border: 1px solid #444; border-radius: 10px;
-            max-width: 350px; color: #fff; font-size: 1.1rem;
-            display: none; z-index: 50; text-align: center;
-            text-shadow: 0 0 8px #f00;
-        }
-        .controls {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            display: none; gap: 15px; z-index: 20;
-        }
-        button {
-            padding: 12px 25px; font-size: 1rem; font-family: inherit;
-            background: #111; color: #888; border: 1px solid #444;
-            cursor: pointer; text-transform: uppercase; transition: 0.2s;
-            text-shadow: 0 0 5px #300;
-        }
-        button:hover:not(:disabled) { background: #300; color: #fff; border-color: #f00; }
-        button:disabled { opacity: 0.3; }
-        .btn-group {
-            position: fixed; top: 20px; right: 20px; z-index: 110;
-            display: flex; gap: 10px;
-        }
-        #blood-screen {
-            position: absolute; top:0; left:0; width:100%; height:100%;
-            background: radial-gradient(circle, transparent, #900);
-            opacity:0; pointer-events:none; z-index:15; transition: opacity 0.5s;
-        }
-        #gameover-overlay {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.9); z-index:200;
-            display: none; flex-direction: column;
-            justify-content: center; align-items: center;
-        }
-        #gameover-overlay h1 { font-size: 3rem; margin-bottom:30px; text-shadow: 0 0 20px #f00; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, orientation=landscape">
+<title>STAKES: Nightmare AI</title>
+<style>
+body { margin:0; overflow:hidden; background:black; font-family:monospace; }
+#vhs {
+    position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0px,rgba(0,0,0,.1) 2px,transparent 4px);
+    animation:vhs .08s infinite;
+}
+@keyframes vhs{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
+#grain{
+    position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:51;
+    background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3"/></filter><rect width="100" height="100" filter="url(%23n)" opacity=".1"/></svg>');
+    opacity:.15;
+}
+#ui{
+    position:fixed;bottom:20px;width:100%;text-align:center;z-index:10;
+}
+button{
+    padding:12px 24px;margin:4px;font-size:16px;background:#111;color:#aaa;border:1px solid #444;
+    text-transform:uppercase;cursor:pointer;
+}
+button:hover:not(:disabled){background:#300;color:#fff;border-color:#f00}
+button:disabled{opacity:.3}
+#speech{
+    position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:30;
+    padding:12px;background:rgba(0,0,0,.9);border:1px solid #444;border-radius:8px;
+    max-width:300px;color:#fff;font-size:1.1rem;text-align:center;display:none;
+}
+#clock{
+    position:fixed;top:20px;left:20px;padding:8px;background:rgba(20,0,0,.8);
+    border:2px solid #500;color:#f00;font-size:1.4rem;z-index:20;pointer-events:none;
+}
+#blood{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:radial-gradient(circle,transparent,#800);opacity:0;pointer-events:none;z-index:15;
+    transition:opacity .5s;
+}
+#rotate-warning{
+    position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:999;
+    color:#fff;display:none;justify-content:center;align-items:center;font-size:2rem;
+    text-transform:uppercase;text-shadow:0 0 20px #f00;
+}
+</style>
 </head>
 <body>
-    <div id="rotate-warning">ПЕРЕВЕРНИТЕ ЭКРАН</div>
-    <div id="vhs-overlay"></div>
-    <div id="grain-overlay"></div>
-    <div id="clock-window">00:00:00</div>
-    <div id="dealer-speech"></div>
-    <div id="blood-screen"></div>
+<div id="vhs"></div><div id="grain"></div>
+<div id="rotate-warning">ПЕРЕВЕРНИТЕ ЭКРАН</div>
+<div id="clock"></div>
+<div id="speech"></div>
+<div id="blood"></div>
 
-    <div id="gameover-overlay">
-        <h1 id="gameover-title"></h1>
-        <button id="restart-btn">ЗАНОВО</button>
-    </div>
+<div id="ui">
+    <button id="startBtn">ПРИНЯТЬ ПАРИ</button>
+    <button id="inspectBtn" style="display:none">ОСМОТР</button>
+    <button id="takeBtn" style="display:none">ВЗЯТЬ</button>
+    <button id="spinBtn" style="display:none">КРУТИТЬ</button>
+    <button id="ejectBtn" style="display:none">ВЫБРОС (1)</button>
+    <button id="shootBtn" style="display:none">ВЫСТРЕЛ</button>
+</div>
 
-    <div class="controls" id="controls">
-        <button id="inspect-btn">ОСМОТР</button>
-        <button id="take-btn" style="display:none;">ВЗЯТЬ</button>
-        <button id="spin-btn" style="display:none;">КРУТИТЬ</button>
-        <button id="eject-btn" style="display:none;">ВЫБРОС (1)</button>
-        <button id="shoot-btn" style="display:none;">ВЫСТРЕЛ</button>
-    </div>
+<script type="module">
+import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-    <div class="btn-group">
-        <button id="fs-btn">⛶</button>
-        <button id="mute-btn">🔊</button>
-    </div>
+// ---------- ОСНОВНЫЕ ПЕРЕМЕННЫЕ ----------
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100);
+camera.position.set(0,1.6,2.5);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
 
-    <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+const ambient = new THREE.AmbientLight(0x221111,0.4);
+scene.add(ambient);
+const lamp = new THREE.PointLight(0xffccaa,1.2,8);
+lamp.position.set(0.3,2.0,0.5);
+lamp.castShadow = true;
+scene.add(lamp);
 
-        // ----- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ -----
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-        camera.position.set(0, 1.6, 2.5);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-        renderer.setSize(innerWidth, innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.prepend(renderer.domElement);
+let gunGroup, cylMesh, bulletPos, currentChamber, state, ejectsLeft;
+let enemyGroup, enemyArm, enemyForearm, enemyHead, enemyEyeL, enemyEyeR;
+let audioCtx, bgOsc, selectedVoice;
 
-        const ambient = new THREE.AmbientLight(0x221111, 0.4);
-        scene.add(ambient);
-        const tableLamp = new THREE.PointLight(0xffccaa, 1.2, 8);
-        tableLamp.position.set(0.3, 2.0, 0.5);
-        tableLamp.castShadow = true;
-        scene.add(tableLamp);
+// ---------- ФУНКЦИИ ЗВУКА И ГОЛОСА ----------
+function createDistortionCurve(amount=400){
+    const k = amount, n = 44100, curve = new Float32Array(n), deg = Math.PI/180;
+    for(let i=0;i<n;i++){
+        const x = i*2/n-1;
+        curve[i] = (3+k)*x*20*deg/(Math.PI+k*Math.abs(x));
+    }
+    return curve;
+}
 
-        let gunGroup, cylinderMesh, bulletPos, currentChamber, state, ejectsLeft;
-        let enemyGroup, enemyArm, enemyForearm, enemyHead, enemyEyeL, enemyEyeR;
-        let table, chair;
-        let audioCtx, bgOsc, demonGainNode;
+function initAudio(){
+    if(audioCtx) return;
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    bgOsc = audioCtx.createOscillator();
+    bgOsc.type = 'sawtooth';
+    bgOsc.frequency.value = 45;
+    const bgGain = audioCtx.createGain();
+    bgGain.gain.value = 0.015;
+    bgOsc.connect(bgGain);
+    bgGain.connect(audioCtx.destination);
+    bgOsc.start();
 
-        // ----- ТЕКСТУРЫ И ПОСТРОЕНИЕ -----
-        function createWallTex() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,256,256);
-            for (let i=0;i<2000;i++) {
-                ctx.fillStyle = `rgb(${Math.floor(Math.random()*30+10)},${Math.floor(Math.random()*30+10)},${Math.floor(Math.random()*30+10)})`;
-                ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
-            }
-            return new THREE.CanvasTexture(canvas);
+    const setVoice = ()=>{
+        const v = speechSynthesis.getVoices();
+        if(v.length){
+            selectedVoice = v.find(x=>x.lang.startsWith('ru')&&x.name.includes('Male')) ||
+                            v.find(x=>x.lang.startsWith('ru')) || null;
         }
+    };
+    setVoice();
+    speechSynthesis.onvoiceschanged = setVoice;
+}
 
-        function buildScene() {
-            const wallTex = createWallTex();
-            wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-            wallTex.repeat.set(2,2);
-            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.9 });
-
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(8,8), wallMat);
-            floor.rotation.x = -Math.PI/2; floor.receiveShadow = true;
-            scene.add(floor);
-
-            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(8,5), new THREE.MeshStandardMaterial({ color: 0x111, roughness:1 }));
-            backWall.position.set(0,2.5,-3); backWall.receiveShadow = true;
-            scene.add(backWall);
-
-            // Окно с динамическим окружением (дождь, луна, молнии)
-            const windowCanvas = document.createElement('canvas');
-            windowCanvas.width = 256; windowCanvas.height = 256;
-            const windowCtx = windowCanvas.getContext('2d');
-            const windowTex = new THREE.CanvasTexture(windowCanvas);
-            const windowMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.8, 1.4),
-                new THREE.MeshBasicMaterial({ map: windowTex })
-            );
-            windowMesh.position.set(1.2, 2.8, -2.95);
-            scene.add(windowMesh);
-
-            function updateWindow() {
-                const w = windowCanvas.width, h = windowCanvas.height;
-                windowCtx.fillStyle = '#0a0a1a'; windowCtx.fillRect(0,0,w,h);
-                windowCtx.fillStyle = '#ffcccc';
-                windowCtx.beginPath(); windowCtx.arc(180,40,30,0,Math.PI*2); windowCtx.fill();
-                windowCtx.fillStyle = '#ff0000';
-                windowCtx.beginPath(); windowCtx.arc(188,35,8,0,Math.PI*2); windowCtx.fill();
-                windowCtx.fillStyle = '#ffffff';
-                for (let i=0;i<30;i++) windowCtx.fillRect(Math.random()*w, Math.random()*h*0.7, 1, 1);
-                windowCtx.strokeStyle = 'rgba(200,200,255,0.4)';
-                windowCtx.lineWidth = 1;
-                const offset = performance.now()*0.05 % 40;
-                for (let y = -40+offset; y < h; y += 20) {
-                    windowCtx.beginPath();
-                    windowCtx.moveTo(Math.random()*w, y);
-                    windowCtx.lineTo(Math.random()*w, y+15);
-                    windowCtx.stroke();
-                }
-                if (Math.random() < 0.02) {
-                    windowCtx.strokeStyle = '#ffffaa';
-                    windowCtx.lineWidth = 2;
-                    windowCtx.beginPath();
-                    windowCtx.moveTo(100,0);
-                    windowCtx.lineTo(90,60);
-                    windowCtx.lineTo(110,90);
-                    windowCtx.lineTo(80,140);
-                    windowCtx.stroke();
-                }
-                windowMesh.material.map.needsUpdate = true;
-            }
-
-            table = new THREE.Mesh(
-                new THREE.BoxGeometry(2.5, 0.1, 1.5),
-                new THREE.MeshStandardMaterial({ color: 0x150d08, roughness: 0.8 })
-            );
-            table.position.set(0, 0.9, 0.8);
-            table.castShadow = true; table.receiveShadow = true;
-            scene.add(table);
-
-            chair = new THREE.Group();
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x1a0a05, roughness: 0.7 });
-            const seat = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.05,0.7), woodMat);
-            seat.position.y = 0.6; chair.add(seat);
-            const back = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.8,0.05), woodMat);
-            back.position.set(0,1.0,-0.35); chair.add(back);
-            chair.position.set(0, 0, -0.85);
-            chair.castShadow = true; chair.receiveShadow = true;
-            scene.add(chair);
-
-            setInterval(updateWindow, 100);
-            updateWindow();
+function playSound(type,pos=null){
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    if(type==='click'){
+        o.frequency.value=800; g.gain.value=0.2;
+        o.start(); o.stop(audioCtx.currentTime+0.1);
+    }else if(type==='shot'){
+        o.type='square'; o.frequency.value=60; g.gain.value=1;
+        g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+1);
+        o.start(); o.stop(audioCtx.currentTime+1);
+        if(pos){
+            const l = new THREE.PointLight(0xff5500,3,4);
+            l.position.copy(pos); scene.add(l);
+            setTimeout(()=>scene.remove(l),100);
+            spawnShellAndSmoke(pos);
         }
+    }
+}
 
-        // ----- ДИЛЕР (СИДЯЩИЙ, С ПАЛЬЦАМИ) -----
-        function buildDealer() {
-            enemyGroup = new THREE.Group();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.8 });
-
-            // Ноги
-            const thighL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), bodyMat);
-            thighL.position.set(-0.2, 0.4, 0); thighL.castShadow = true;
-            enemyGroup.add(thighL);
-            const thighR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), bodyMat);
-            thighR.position.set(0.2, 0.4, 0); thighR.castShadow = true;
-            enemyGroup.add(thighR);
-            const shinL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.35, 0.15), bodyMat);
-            shinL.position.set(-0.2, 0.05, 0.15); shinL.castShadow = true;
-            enemyGroup.add(shinL);
-            const shinR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.35, 0.15), bodyMat);
-            shinR.position.set(0.2, 0.05, 0.15); shinR.castShadow = true;
-            enemyGroup.add(shinR);
-
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.3), bodyMat);
-            torso.position.y = 1.0; torso.castShadow = true;
-            enemyGroup.add(torso);
-
-            enemyHead = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.4, 0.35), bodyMat);
-            enemyHead.position.y = 1.75; enemyHead.castShadow = true;
-            enemyGroup.add(enemyHead);
-
-            const eyeGeo = new THREE.SphereGeometry(0.06);
-            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: new THREE.Color(0x330000) });
-            enemyEyeL = new THREE.Mesh(eyeGeo, eyeMat);
-            enemyEyeL.position.set(-0.08,1.85,0.16); enemyGroup.add(enemyEyeL);
-            enemyEyeR = new THREE.Mesh(eyeGeo, eyeMat);
-            enemyEyeR.position.set(0.08,1.85,0.16); enemyGroup.add(enemyEyeR);
-
-            // Рука: плечо + предплечье + кисть
-            const shoulder = new THREE.Group();
-            shoulder.position.set(0.3, 1.5, 0.1);
-            const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.1), bodyMat);
-            upperArm.position.y = -0.22; upperArm.castShadow = true;
-            shoulder.add(upperArm);
-
-            enemyForearm = new THREE.Group();
-            enemyForearm.position.set(0, -0.45, 0);
-            const forearmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.08), bodyMat);
-            forearmMesh.position.y = -0.17; forearmMesh.castShadow = true;
-            enemyForearm.add(forearmMesh);
-
-            // Пальцы
-            const fingerGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.08);
-            const fingerMat = new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.5 });
-            for (let i=0; i<4; i++) {
-                const finger = new THREE.Mesh(fingerGeo, fingerMat);
-                finger.position.set(0.03 - i*0.025, -0.35, 0.04);
-                finger.rotation.z = Math.PI/6;
-                enemyForearm.add(finger);
-            }
-            const thumb = new THREE.Mesh(fingerGeo, fingerMat);
-            thumb.position.set(-0.05, -0.34, 0.02);
-            thumb.rotation.z = -Math.PI/6;
-            enemyForearm.add(thumb);
-
-            shoulder.add(enemyForearm);
-            enemyArm = shoulder;
-            enemyGroup.add(enemyArm);
-
-            enemyGroup.position.set(0, 0.25, -0.5);
-            scene.add(enemyGroup);
+function spawnBloodSpray(pos){
+    for(let i=0;i<15;i++){
+        const d = new THREE.Mesh(
+            new THREE.SphereGeometry(0.03,4,4),
+            new THREE.MeshBasicMaterial({color:0xaa0000})
+        );
+        d.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*.2,(Math.random()-.5)*.2,(Math.random()-.5)*.2));
+        scene.add(d);
+        const vel = new THREE.Vector3((Math.random()-.5)*3,Math.random()*2+1,(Math.random()-.5)*3);
+        const start = performance.now();
+        function anim(now){
+            const dt = (now-start)/1000;
+            if(dt>1.5){ scene.remove(d); return; }
+            d.position.x+=vel.x*dt; d.position.y+=vel.y*dt-9.8*dt*dt/2; d.position.z+=vel.z*dt;
+            requestAnimationFrame(anim);
         }
+        requestAnimationFrame(anim);
+    }
+}
 
-        // ----- РЕВОЛЬВЕР -----
-        function buildGun() {
-            gunGroup = new THREE.Group();
-            const metal = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.95, roughness: 0.3 });
-            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.5), metal);
-            barrel.rotation.x = Math.PI/2; barrel.position.z = 0.25; barrel.castShadow = true;
-            gunGroup.add(barrel);
-            cylinderMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.2), metal);
-            cylinderMesh.rotation.x = Math.PI/2; cylinderMesh.castShadow = true;
-            gunGroup.add(cylinderMesh);
-            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.2,0.1), new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9 }));
-            grip.position.set(0,-0.15,-0.15); grip.castShadow = true;
-            gunGroup.add(grip);
-            scene.add(gunGroup);
-            gunGroup.position.set(0.2,1.0,0.8);
-            gunGroup.rotation.set(0,1.5,0);
+function spawnShellAndSmoke(pos){
+    const shell = new THREE.Mesh(
+        new THREE.CylinderGeometry(.03,.03,.08),
+        new THREE.MeshStandardMaterial({color:0xbfa035,metalness:.9,roughness:.3})
+    );
+    shell.position.copy(pos);
+    shell.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0);
+    scene.add(shell);
+    const vel = new THREE.Vector3((Math.random()-.5)*2,Math.random()*2+1,(Math.random()-.5)*2);
+    const start = performance.now();
+    function animShell(now){
+        const dt = (now-start)/1000;
+        if(dt>2){ scene.remove(shell); return; }
+        shell.position.x+=vel.x*dt; shell.position.y+=vel.y*dt-9.8*dt*dt/2; shell.position.z+=vel.z*dt;
+        requestAnimationFrame(animShell);
+    }
+    requestAnimationFrame(animShell);
+
+    for(let i=0;i<8;i++){
+        const smoke = new THREE.Mesh(
+            new THREE.SphereGeometry(.04,4,4),
+            new THREE.MeshBasicMaterial({color:0x444,transparent:true,opacity:.6})
+        );
+        smoke.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*.1,(Math.random()-.5)*.1,0));
+        scene.add(smoke);
+        const sStart = performance.now();
+        function animSmoke(now){
+            const dt = (now-sStart)/1000;
+            if(dt>1.5){ scene.remove(smoke); return; }
+            smoke.material.opacity = .6*(1-dt/1.5);
+            smoke.position.x += (Math.random()-.5)*.01;
+            smoke.position.y += .015;
+            requestAnimationFrame(animSmoke);
         }
+        requestAnimationFrame(animSmoke);
+    }
+}
 
-        // *** ИСПРАВЛЕНО: хват за рукоятку, а не за дуло ***
-        function updateGunPosition(mode) {
-            const targetPos = new THREE.Vector3();
-            const targetRot = new THREE.Euler();
-            switch(mode) {
-                case 'TABLE': targetPos.set(0.2,1.0,0.8); targetRot.set(0,1.5,0); scene.attach(gunGroup); break;
-                case 'PLAYER_INSPECT': targetPos.set(0,-0.2,-0.6); targetRot.set(0.5,0.8,0); camera.attach(gunGroup); break;
-                case 'PLAYER_HAND': targetPos.set(0.4,-0.4,-0.7); targetRot.set(0,0,0); camera.attach(gunGroup); break;
-                case 'PLAYER_AIM': targetPos.set(0,-0.1,-0.45); targetRot.set(0,0,0); camera.attach(gunGroup); break;
-                case 'ENEMY_HAND':
-                    // Кисть находится примерно на -0.35 по Y в enemyForearm,
-                    // пистолет должен лежать рукояткой в ладони, дуло направлено вверх (к плечу).
-                    targetPos.set(0, -0.35, 0.05);
-                    targetRot.set(Math.PI/2, 0, 0);  // дуло смотрит вдоль +Y (вверх к плечу при опущенной руке)
-                    enemyForearm.attach(gunGroup);
-                    break;
-            }
-            const startPos = gunGroup.position.clone();
-            const startQuat = gunGroup.quaternion.clone();
-            const targetQuat = new THREE.Quaternion().setFromEuler(targetRot);
-            const startTime = performance.now();
-            function animMove(now) {
-                const t = Math.min(1, (now-startTime)/300);
-                gunGroup.position.lerpVectors(startPos, targetPos, t);
-                gunGroup.quaternion.slerpQuaternions(startQuat, targetQuat, t);
-                if (t<1) requestAnimationFrame(animMove);
-            }
-            requestAnimationFrame(animMove);
+function say(text){
+    const el = document.getElementById('speech');
+    el.textContent=text; el.style.display='block';
+    try{
+        if(window.speechSynthesis){
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang='ru-RU'; u.pitch=0.3; u.rate=0.75;
+            if(selectedVoice) u.voice = selectedVoice;
+            speechSynthesis.speak(u);
         }
+        if(audioCtx){
+            const dur = text.length*0.09;
+            const osc = audioCtx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=65;
+            const gain = audioCtx.createGain(); gain.gain.value=0.4;
+            const dist = audioCtx.createWaveShaper(); dist.curve=createDistortionCurve(400); dist.oversample='4x';
+            const filt = audioCtx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900;
+            const sub = audioCtx.createOscillator(); sub.type='sine'; sub.frequency.value=35;
+            const subGain = audioCtx.createGain(); subGain.gain.value=0.25;
 
-        // ----- ЗВУК И ГОЛОС -----
-        let selectedVoice = null;
-        function initAudio() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-            // фоновый гул
-            bgOsc = audioCtx.createOscillator();
-            bgOsc.type = 'sawtooth';
-            bgOsc.frequency.value = 45;
-            const bgGain = audioCtx.createGain();
-            bgGain.gain.value = 0.015;
-            bgOsc.connect(bgGain);
-            bgGain.connect(audioCtx.destination);
-            bgOsc.start();
+            osc.connect(dist); dist.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination);
+            sub.connect(subGain); subGain.connect(audioCtx.destination);
 
-            // нода для демонического голоса
-            demonGainNode = audioCtx.createGain();
-            demonGainNode.gain.value = 0;
-            demonGainNode.connect(audioCtx.destination);
-
-            // Выбираем мужской русский голос
-            function setVoice() {
-                const voices = speechSynthesis.getVoices();
-                if (voices.length > 0) {
-                    // Ищем мужской русский (Google или любой)
-                    selectedVoice = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes('male'));
-                    if (!selectedVoice) {
-                        // если нет явно мужского, берём любой русский и будем сильно снижать питч
-                        selectedVoice = voices.find(v => v.lang.startsWith('ru')) || null;
-                    }
-                }
-            }
-            setVoice();
-            speechSynthesis.onvoiceschanged = setVoice;
+            osc.start(); sub.start();
+            gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+            subGain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+            osc.stop(audioCtx.currentTime+dur); sub.stop(audioCtx.currentTime+dur);
         }
+    }catch(e){}
+    setTimeout(()=>el.style.display='none',4000);
+}
 
-        function playSound(type, pos) {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            if (type === 'click') {
-                osc.frequency.value = 800; gain.gain.value = 0.2;
-                osc.start(); osc.stop(audioCtx.currentTime+0.1);
-            } else if (type === 'shot') {
-                osc.type = 'square'; osc.frequency.value = 60; gain.gain.value = 1;
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+1);
-                osc.start(); osc.stop(audioCtx.currentTime+1);
-                if (pos) {
-                    const light = new THREE.PointLight(0xff5500,3,4);
-                    light.position.copy(pos); scene.add(light);
-                    setTimeout(()=>scene.remove(light), 100);
-                    spawnShellAndSmoke(pos);
-                }
-            }
-        }
+// ---------- ПОСТРОЕНИЕ СЦЕНЫ ----------
+function buildScene(){
+    const wallTex = (()=>{
+        const c=document.createElement('canvas');c.width=c.height=256;
+        const ctx=c.getContext('2d');ctx.fillStyle='#0a0a0a';ctx.fillRect(0,0,256,256);
+        for(let i=0;i<2000;i++){ctx.fillStyle=`rgb(${Math.random()*30+10},${Math.random()*30+10},${Math.random()*30+10})`;ctx.fillRect(Math.random()*256,Math.random()*256,2,2)}
+        return new THREE.CanvasTexture(c);
+    })();
+    wallTex.wrapS=wallTex.wrapT=THREE.RepeatWrapping;wallTex.repeat.set(2,2);
+    const wallMat = new THREE.MeshStandardMaterial({map:wallTex,roughness:0.9});
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8,8),wallMat);
+    floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(8,5),new THREE.MeshStandardMaterial({color:0x111,roughness:1}));
+    back.position.set(0,2.5,-3);back.receiveShadow=true;scene.add(back);
 
-        function spawnBloodSpray(pos) {
-            for (let i=0;i<15;i++) {
-                const drop = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.03,4,4),
-                    new THREE.MeshBasicMaterial({ color: 0xaa0000 })
-                );
-                drop.position.copy(pos);
-                drop.position.x += (Math.random()-0.5)*0.2;
-                drop.position.y += (Math.random()-0.5)*0.2;
-                drop.position.z += (Math.random()-0.5)*0.2;
-                scene.add(drop);
-                const vel = new THREE.Vector3((Math.random()-0.5)*3, Math.random()*2+1, (Math.random()-0.5)*3);
-                const start = performance.now();
-                function animBlood(now) {
-                    const dt = (now-start)/1000;
-                    if (dt>1.5) { scene.remove(drop); return; }
-                    drop.position.x += vel.x*dt;
-                    drop.position.y += vel.y*dt - 9.8*dt*dt/2;
-                    drop.position.z += vel.z*dt;
-                    requestAnimationFrame(animBlood);
-                }
-                requestAnimationFrame(animBlood);
-            }
-        }
+    // Окно с грозой
+    const winCanvas = document.createElement('canvas');winCanvas.width=winCanvas.height=256;
+    const winCtx = winCanvas.getContext('2d');
+    const winTex = new THREE.CanvasTexture(winCanvas);
+    const winMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.4),new THREE.MeshBasicMaterial({map:winTex}));
+    winMesh.position.set(1.2,2.8,-2.95);scene.add(winMesh);
+    setInterval(()=>{
+        const w=256,h=256;winCtx.fillStyle='#0a0a1a';winCtx.fillRect(0,0,w,h);
+        winCtx.fillStyle='#fcc';winCtx.beginPath();winCtx.arc(180,40,30,0,Math.PI*2);winCtx.fill();
+        winCtx.fillStyle='#f00';winCtx.beginPath();winCtx.arc(188,35,8,0,Math.PI*2);winCtx.fill();
+        winCtx.fillStyle='#fff';for(let i=0;i<30;i++) winCtx.fillRect(Math.random()*w,Math.random()*h*.7,1,1);
+        winCtx.strokeStyle='rgba(200,200,255,.4)';winCtx.lineWidth=1;
+        const off = performance.now()*.05%40;
+        for(let y=-40+off;y<h;y+=20){winCtx.beginPath();winCtx.moveTo(Math.random()*w,y);winCtx.lineTo(Math.random()*w,y+15);winCtx.stroke()}
+        if(Math.random()<.02){winCtx.strokeStyle='#ffa';winCtx.lineWidth=2;winCtx.beginPath();winCtx.moveTo(100,0);winCtx.lineTo(90,60);winCtx.lineTo(110,90);winCtx.lineTo(80,140);winCtx.stroke()}
+        winMesh.material.map.needsUpdate=true;
+    },100);
 
-        function spawnShellAndSmoke(pos) {
-            const shell = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.03,0.03,0.08),
-                new THREE.MeshStandardMaterial({ color: 0xbfa035, metalness:0.9, roughness:0.3 })
-            );
-            shell.position.copy(pos);
-            shell.rotation.x = Math.random()*Math.PI;
-            shell.rotation.z = Math.random()*Math.PI;
-            scene.add(shell);
-            const vel = new THREE.Vector3((Math.random()-0.5)*2, Math.random()*2+1, (Math.random()-0.5)*2);
-            const start = performance.now();
-            function animShell(now) {
-                const dt = (now-start)/1000;
-                if (dt>2) { scene.remove(shell); return; }
-                shell.position.x += vel.x*dt;
-                shell.position.y += vel.y*dt - 9.8*dt*dt/2;
-                shell.position.z += vel.z*dt;
-                requestAnimationFrame(animShell);
-            }
-            requestAnimationFrame(animShell);
+    const table = new THREE.Mesh(new THREE.BoxGeometry(2.5,.1,1.5),new THREE.MeshStandardMaterial({color:0x150d08,roughness:.8}));
+    table.position.set(0,.9,.8);table.castShadow=true;table.receiveShadow=true;scene.add(table);
+    const chair = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({color:0x1a0a05,roughness:.7});
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(.7,.05,.7),wood);seat.position.y=.6;chair.add(seat);
+    const backC = new THREE.Mesh(new THREE.BoxGeometry(.7,.8,.05),wood);backC.position.set(0,1,-.35);chair.add(backC);
+    chair.position.set(0,0,-.85);chair.castShadow=true;chair.receiveShadow=true;scene.add(chair);
+}
 
-            for (let i=0;i<8;i++) {
-                const smoke = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.04,4,4),
-                    new THREE.MeshBasicMaterial({ color: 0x444444, transparent:true, opacity:0.6 })
-                );
-                smoke.position.copy(pos);
-                smoke.position.x += (Math.random()-0.5)*0.1;
-                smoke.position.y += (Math.random()-0.5)*0.1;
-                scene.add(smoke);
-                const startS = performance.now();
-                function animSmoke(now) {
-                    const dt = (now-startS)/1000;
-                    if (dt>1.5) { scene.remove(smoke); return; }
-                    smoke.material.opacity = 0.6*(1 - dt/1.5);
-                    smoke.position.x += (Math.random()-0.5)*0.01;
-                    smoke.position.y += 0.015;
-                    requestAnimationFrame(animSmoke);
-                }
-                requestAnimationFrame(animSmoke);
-            }
-        }
+// ---------- ДИЛЕР ----------
+function buildEnemy(){
+    enemyGroup = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({color:0x2a1a1a,roughness:.8});
+    const thighL = new THREE.Mesh(new THREE.BoxGeometry(.18,.4,.18),mat);thighL.position.set(-.2,.4,0);enemyGroup.add(thighL);
+    const thighR = new THREE.Mesh(new THREE.BoxGeometry(.18,.4,.18),mat);thighR.position.set(.2,.4,0);enemyGroup.add(thighR);
+    const shinL = new THREE.Mesh(new THREE.BoxGeometry(.15,.35,.15),mat);shinL.position.set(-.2,.05,.15);enemyGroup.add(shinL);
+    const shinR = new THREE.Mesh(new THREE.BoxGeometry(.15,.35,.15),mat);shinR.position.set(.2,.05,.15);enemyGroup.add(shinR);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(.5,.9,.3),mat);torso.position.y=1;enemyGroup.add(torso);
+    enemyHead = new THREE.Mesh(new THREE.BoxGeometry(.35,.4,.35),mat);enemyHead.position.y=1.75;enemyGroup.add(enemyHead);
+    const eyeG = new THREE.SphereGeometry(.06);
+    const eyeM = new THREE.MeshStandardMaterial({color:0xf00,emissive:new THREE.Color(0x330000)});
+    enemyEyeL = new THREE.Mesh(eyeG,eyeM);enemyEyeL.position.set(-.08,1.85,.16);enemyGroup.add(enemyEyeL);
+    enemyEyeR = new THREE.Mesh(eyeG,eyeM);enemyEyeR.position.set(.08,1.85,.16);enemyGroup.add(enemyEyeR);
 
-        // *** Демонический голос: грубый мужской (или низкий женский) + рык ***
-        function say(text) {
-            const el = document.getElementById('dealer-speech');
-            el.textContent = text; el.style.display='block';
-            try {
-                if (window.speechSynthesis) {
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'ru-RU';
-                    u.pitch = 0.05;   // экстремально низкий
-                    u.rate = 0.7;
-                    if (selectedVoice) u.voice = selectedVoice;
-                    speechSynthesis.speak(u);
-                }
-                // Рычащий сабтоновый осциллятор на время фразы
-                if (audioCtx && demonGainNode) {
-                    const duration = text.length * 0.08;
-                    const roar = audioCtx.createOscillator();
-                    roar.type = 'sawtooth';
-                    roar.frequency.value = 70;
-                    const roarGain = audioCtx.createGain();
-                    roarGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    roarGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-                    roar.connect(roarGain);
-                    roarGain.connect(demonGainNode);
-                    roar.start();
-                    roar.stop(audioCtx.currentTime + duration);
-                }
-            } catch(e) {}
-            setTimeout(()=> el.style.display='none', 4000);
-        }
+    const shoulder = new THREE.Group();shoulder.position.set(.3,1.5,.1);
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(.1,.45,.1),mat);upper.position.y=-.22;shoulder.add(upper);
+    enemyForearm = new THREE.Group();enemyForearm.position.set(0,-.45,0);
+    const forearmMesh = new THREE.Mesh(new THREE.BoxGeometry(.08,.35,.08),mat);forearmMesh.position.y=-.17;enemyForearm.add(forearmMesh);
+    // пальцы
+    const fGeo = new THREE.CylinderGeometry(.025,.025,.08);
+    const fMat = new THREE.MeshStandardMaterial({color:0x2a1a1a});
+    for(let i=0;i<4;i++){const f=new THREE.Mesh(fGeo,fMat);f.position.set(.03-i*.025,-.35,.04);f.rotation.z=Math.PI/6;enemyForearm.add(f)}
+    const thumb = new THREE.Mesh(fGeo,fMat);thumb.position.set(-.05,-.34,.02);thumb.rotation.z=-Math.PI/6;enemyForearm.add(thumb);
+    shoulder.add(enemyForearm);
+    enemyArm = shoulder;
+    enemyGroup.add(enemyArm);
+    enemyGroup.position.set(0,.25,-.5);
+    scene.add(enemyGroup);
+}
 
-        document.getElementById('mute-btn').onclick = () => {
-            const btn = document.getElementById('mute-btn');
-            if (audioCtx?.state === 'running') {
-                audioCtx.suspend();
-                btn.textContent = '🔇';
-            } else {
-                audioCtx?.resume();
-                btn.textContent = '🔊';
-            }
-        };
+// ---------- РЕВОЛЬВЕР ----------
+function buildGun(){
+    gunGroup = new THREE.Group();
+    const metal = new THREE.MeshStandardMaterial({color:0x1a1a1a,metalness:.95,roughness:.3});
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.5),metal);
+    barrel.rotation.x=Math.PI/2; barrel.position.z=.25; gunGroup.add(barrel);
+    cylMesh = new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,.2),metal);
+    cylMesh.rotation.x=Math.PI/2; gunGroup.add(cylMesh);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(.07,.2,.1),new THREE.MeshStandardMaterial({color:0x3a2a1a,roughness:.9}));
+    grip.position.set(0,-.15,-.15); gunGroup.add(grip);
+    scene.add(gunGroup);
+    gunGroup.position.set(.2,1,.8);
+    gunGroup.rotation.set(0,1.5,0);
+}
 
-        // ----- ИГРОВАЯ ЛОГИКА -----
-        function endGame(win) {
-            state = 'END';
-            document.getElementById('controls').style.display='none';
-            document.getElementById('gameover-overlay').style.display='flex';
-            const title = document.getElementById('gameover-title');
-            title.textContent = win ? 'ВЫ ПОБЕДИЛИ' : 'ВЫ МЕРТВЫ';
-            title.style.color = win ? '#0f0' : '#f00';
-            if (audioCtx?.state==='running') audioCtx.suspend();
-            if (bgOsc) bgOsc.stop();
-        }
+function safeAttach(parent,child){
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    child.getWorldPosition(pos);
+    child.getWorldQuaternion(quat);
+    if(child.parent) child.parent.remove(child);
+    parent.add(child);
+    child.position.copy(parent.worldToLocal(pos));
+    child.quaternion.copy(quat);
+}
 
-        function restart() {
-            document.getElementById('gameover-overlay').style.display='none';
-            document.getElementById('blood-screen').style.opacity='0';
-            state='START'; bulletPos=Math.floor(Math.random()*6); currentChamber=0; ejectsLeft=1;
-            tableLamp.color.set(0xffccaa);
-            enemyGroup.rotation.set(0,0,0);
-            enemyGroup.position.set(0,0.25,-0.5);
-            updateGunPosition('TABLE');
-            if (audioCtx?.state==='suspended') audioCtx.resume();
-            if (!bgOsc) initAudio();
-            dealerTurn();
-        }
+function updateGunPos(mode){
+    const tp = new THREE.Vector3(), tr = new THREE.Euler();
+    switch(mode){
+        case 'TABLE': tp.set(.2,1,.8); tr.set(0,1.5,0); safeAttach(scene,gunGroup); break;
+        case 'PLAYER_INSPECT': tp.set(0,-.2,-.6); tr.set(.5,.8,0); safeAttach(camera,gunGroup); break;
+        case 'PLAYER_HAND': tp.set(.4,-.4,-.7); tr.set(0,0,0); safeAttach(camera,gunGroup); break;
+        case 'PLAYER_AIM': tp.set(0,-.1,-.45); tr.set(0,0,0); safeAttach(camera,gunGroup); break;
+        case 'ENEMY_HAND': tp.set(0,-.35,.05); tr.set(Math.PI/2,0,0); safeAttach(enemyForearm,gunGroup); break;
+    }
+    const sp = gunGroup.position.clone(), sq = gunGroup.quaternion.clone();
+    const tq = new THREE.Quaternion().setFromEuler(tr);
+    const start = performance.now();
+    function anim(now){
+        const t = Math.min(1, (now-start)/300);
+        gunGroup.position.lerpVectors(sp,tp,t);
+        gunGroup.quaternion.slerpQuaternions(sq,tq,t);
+        if(t<1) requestAnimationFrame(anim);
+    }
+    requestAnimationFrame(anim);
+}
 
-        function dealerTurn() {
-            state='ENEMY';
-            document.getElementById('controls').style.display='none';
-            updateGunPosition('TABLE');
-            setTimeout(()=> updateGunPosition('ENEMY_HAND'), 600);
-            setTimeout(()=>{
-                const risk = 1/(6-currentChamber);
-                if (risk>0.35 && Math.random()>0.3) {
-                    say("Слишком предсказуемо... Перемешаем.");
-                    let spins=0;
-                    const iv = setInterval(()=>{
-                        cylinderMesh.rotation.z+=1.2;
-                        if(++spins>20) { clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; playSound('spin'); }
-                    },60);
-                } else {
-                    // *** Фразы дилера (без цензуры) ***
-                    const phrases = [
-                        "Твой пот воняет страхом, кусок мяса.",
-                        "Надеюсь, твои мозги хорошо отмоются от стола.",
-                        "Крути уже, не заставляй меня ждать.",
-                        "Ты думаешь, удача на твоей стороне? Ошибаешься.",
-                        "Может, мне просто застрелить тебя сейчас?",
-                        "Осечка? Какая жалость... для меня.",
-                        "Ты ничтожество, играющее в игры.",
-                        "Твоё сердце стучит так громко, что мне слышно.",
-                        "Каждый раз, когда ты крутишь, я наслаждаюсь твоим страхом.",
-                        "Ты даже не представляешь, как ты жалок.",
-                        "Твоя трусость — лучшее блюдо этого вечера.",
-                        "Я чую твою смерть, она слаще бляди.",
-                        "Ты конченый ублюдок, сдохни.",
-                        "Соси хуй, мразь.",
-                        "Твоя мать шлюха, а ты её выродок.",
-                        "Я выебу твой труп, когда ты сдохнешь.",
-                        "Ты думал, тут тебе помогут? Наслаждайся.",
-                        "Ебаный ссыкло, жми на курок.",
-                        "Ты дешёвка, грязная падаль.",
-                        "Похоже, твоя удача кончилась, как сперма в твоей шлюхе-матери.",
-                        "Твои глаза вылезут из орбит, когда свинец пробьёт твой череп."
-                    ];
-                    say(phrases[Math.floor(Math.random()*phrases.length)]);
-                }
-                const startAim = performance.now();
-                function animAim(now) {
-                    const t = Math.min(1, (now-startAim)/1500);
-                    // Анимация прицеливания в висок
-                    enemyArm.rotation.set(-1.1*t, 0.2*t, -1.8*t);
-                    enemyForearm.rotation.set(-1.5*t, 0, 0);
-                    if (t<1) requestAnimationFrame(animAim);
-                    else {
-                        if (currentChamber === bulletPos) {
-                            const pos = new THREE.Vector3();
-                            enemyArm.getWorldPosition(pos);
-                            playSound('shot', pos);
-                            spawnBloodSpray(pos);
-                            enemyGroup.rotation.x = -Math.PI/4;
-                            enemyGroup.position.y -= 0.3;
-                            enemyGroup.position.z += 0.2;
-                            say("А-а-а-гх...");
-                            endGame(true);
-                        } else {
-                            playSound('click');
-                            currentChamber++;
-                            enemyArm.rotation.set(0,0,0);
-                            enemyForearm.rotation.set(0,0,0);
-                            setTimeout(playerTurn, 1000);
-                        }
-                    }
-                }
-                requestAnimationFrame(animAim);
-            }, 2000);
-        }
+// ---------- ИГРОВАЯ ЛОГИКА ----------
+function endGame(won){
+    state='END';
+    document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
+    document.getElementById('blood').style.opacity = won ? '0' : '1';
+    alert(won ? 'ВЫ ПОБЕДИЛИ' : 'ВЫ МЕРТВЫ');
+    if(audioCtx?.state==='running') audioCtx.suspend();
+    if(bgOsc) bgOsc.stop();
+}
 
-        function playerTurn() {
-            state='PLAYER';
-            updateGunPosition('TABLE');
-            const ctrl = document.getElementById('controls');
-            ctrl.style.display='flex';
-            document.getElementById('inspect-btn').style.display='block';
-            document.getElementById('take-btn').style.display='none';
-            document.getElementById('spin-btn').style.display='none';
-            document.getElementById('shoot-btn').style.display='none';
-            document.getElementById('eject-btn').style.display='none';
-        }
+function startGame(){
+    initAudio();
+    if(audioCtx?.state==='suspended') audioCtx.resume();
+    bulletPos = Math.floor(Math.random()*6);
+    currentChamber = (bulletPos + 1 + Math.floor(Math.random()*5)) % 6; // гарантирует, что первый ход не попадёт
+    ejectsLeft = 1;
+    document.getElementById('startBtn').style.display='none';
+    updateGunPos('TABLE');
+    enemyTurn();
+}
 
-        document.getElementById('inspect-btn').onclick = () => {
-            updateGunPosition('PLAYER_INSPECT');
-            document.getElementById('inspect-btn').style.display='none';
-            document.getElementById('take-btn').style.display='block';
-        };
-        document.getElementById('take-btn').onclick = () => {
-            updateGunPosition('PLAYER_HAND');
-            document.getElementById('take-btn').style.display='none';
-            document.getElementById('spin-btn').style.display='block';
-            document.getElementById('shoot-btn').style.display='block';
-            if(ejectsLeft) document.getElementById('eject-btn').style.display='block';
-        };
-        document.getElementById('spin-btn').onclick = () => {
+function enemyTurn(){
+    state='ENEMY';
+    document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
+    updateGunPos('TABLE');
+    setTimeout(()=> updateGunPos('ENEMY_HAND'),600);
+    setTimeout(()=>{
+        const risk = 1/(6-currentChamber);
+        if(risk>0.35 && Math.random()>0.3){
+            say("Слишком предсказуемо... Перемешаем.");
             let spins=0;
-            const iv = setInterval(()=>{
-                cylinderMesh.rotation.z+=1.2;
-                if(++spins>15) { clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; playSound('spin'); }
-            },60);
-            say("Надейся на пустоту, червяк.");
-        };
-        document.getElementById('eject-btn').onclick = () => {
-            ejectsLeft--;
-            document.getElementById('eject-btn').style.display='none';
-            if (currentChamber === bulletPos) {
-                say("Ты выбросил патрон! Победа.");
-                endGame(true);
-            } else {
-                currentChamber++;
-                playSound('click');
-                say("Пусто. Трусливый ход.");
-            }
-        };
-        document.getElementById('shoot-btn').onclick = () => {
-            updateGunPosition('PLAYER_AIM');
-            document.getElementById('controls').style.display='none';
-            setTimeout(()=>{
-                if (currentChamber === bulletPos) {
-                    const pos = new THREE.Vector3();
-                    gunGroup.getWorldPosition(pos);
-                    playSound('shot', pos);
-                    document.getElementById('blood-screen').style.opacity='1';
-                    endGame(false);
+            const iv = setInterval(()=>{ cylMesh.rotation.z+=1.2; if(++spins>20){clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; } },60);
+        } else {
+            say(["Твой пот воняет страхом.","Надеюсь, твои мозги отмоются.","Крути, мразь."][Math.floor(Math.random()*3)]);
+        }
+        const startAim = performance.now();
+        function animAim(now){
+            const t = Math.min(1,(now-startAim)/1500);
+            enemyArm.rotation.set(-1.1*t, 0.2*t, -1.8*t);
+            enemyForearm.rotation.set(-1.5*t,0,0);
+            if(t<1) requestAnimationFrame(animAim);
+            else {
+                if(currentChamber===bulletPos){
+                    const pos = new THREE.Vector3(); enemyArm.getWorldPosition(pos);
+                    playSound('shot',pos);
+                    spawnBloodSpray(pos);
+                    enemyGroup.rotation.x = -Math.PI/4;
+                    enemyGroup.position.y -= .3;
+                    enemyGroup.position.z += .2;
+                    say("А-а-гх...");
+                    endGame(true);
                 } else {
                     playSound('click');
                     currentChamber++;
-                    setTimeout(dealerTurn, 1000);
+                    enemyArm.rotation.set(0,0,0);
+                    enemyForearm.rotation.set(0,0,0);
+                    playerTurn();
                 }
-            }, 800);
-        };
-
-        document.getElementById('restart-btn').onclick = restart;
-        document.getElementById('fs-btn').onclick = () => {
-            if (document.fullscreenElement) document.exitFullscreen();
-            else document.documentElement.requestFullscreen();
-        };
-
-        function checkOrientation() {
-            const warn = document.getElementById('rotate-warning');
-            warn.style.display = (innerHeight > innerWidth) ? 'flex' : 'none';
-        }
-        window.addEventListener('resize', () => {
-            camera.aspect = innerWidth/innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(innerWidth, innerHeight);
-            checkOrientation();
-        });
-        window.addEventListener('orientationchange', checkOrientation);
-        checkOrientation();
-
-        setInterval(() => {
-            document.getElementById('clock-window').textContent = new Date().toLocaleTimeString();
-        }, 1000);
-
-        document.body.addEventListener('click', initAudio, { once:true });
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (state!=='END') {
-                enemyEyeL.material.emissiveIntensity = 0.3+Math.sin(Date.now()*0.01)*0.3;
-                enemyEyeR.material.emissiveIntensity = 0.3+Math.cos(Date.now()*0.01)*0.3;
-                tableLamp.intensity = 1 + Math.random()*0.15;
             }
-            renderer.render(scene, camera);
         }
+        requestAnimationFrame(animAim);
+    },2000);
+}
 
-        buildScene();
-        buildDealer();
-        buildGun();
-        restart();
-        animate();
-    </script>
+function playerTurn(){
+    state='PLAYER';
+    updateGunPos('TABLE');
+    document.getElementById('inspectBtn').style.display='inline';
+    document.getElementById('takeBtn').style.display='none';
+    document.getElementById('spinBtn').style.display='none';
+    document.getElementById('shootBtn').style.display='none';
+    document.getElementById('ejectBtn').style.display='none';
+}
+
+document.getElementById('startBtn').onclick = startGame;
+document.getElementById('inspectBtn').onclick = ()=>{
+    updateGunPos('PLAYER_INSPECT');
+    document.getElementById('inspectBtn').style.display='none';
+    document.getElementById('takeBtn').style.display='inline';
+};
+document.getElementById('takeBtn').onclick = ()=>{
+    updateGunPos('PLAYER_HAND');
+    document.getElementById('takeBtn').style.display='none';
+    document.getElementById('spinBtn').style.display='inline';
+    document.getElementById('shootBtn').style.display='inline';
+    if(ejectsLeft) document.getElementById('ejectBtn').style.display='inline';
+};
+document.getElementById('spinBtn').onclick = ()=>{
+    let s=0;
+    const iv = setInterval(()=>{ cylMesh.rotation.z+=1.2; if(++s>15){clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; } },60);
+    say("Надейся на пустоту, червяк.");
+};
+document.getElementById('ejectBtn').onclick = ()=>{
+    ejectsLeft--;
+    document.getElementById('ejectBtn').style.display='none';
+    if(currentChamber===bulletPos){
+        say("Ты выбросил патрон! Победа.");
+        endGame(true);
+    } else {
+        currentChamber++;
+        playSound('click');
+        say("Пусто. Трусливый ход.");
+    }
+};
+document.getElementById('shootBtn').onclick = ()=>{
+    updateGunPos('PLAYER_AIM');
+    document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
+    setTimeout(()=>{
+        if(currentChamber===bulletPos){
+            const pos = new THREE.Vector3(); gunGroup.getWorldPosition(pos);
+            playSound('shot',pos);
+            document.getElementById('blood').style.opacity='1';
+            endGame(false);
+        } else {
+            playSound('click');
+            currentChamber++;
+            enemyTurn();
+        }
+    },800);
+};
+
+// ---------- ЦИКЛ ----------
+function animate(){
+    requestAnimationFrame(animate);
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+    if(state!=='END'){
+        enemyEyeL.material.emissiveIntensity = 0.3+Math.sin(Date.now()*.01)*.3;
+        enemyEyeR.material.emissiveIntensity = 0.3+Math.cos(Date.now()*.01)*.3;
+        lamp.intensity = 1 + Math.random()*.15;
+    }
+    renderer.render(scene,camera);
+}
+
+// ---------- РЕСАЙЗ И ОРИЕНТАЦИЯ ----------
+function checkOrientation(){
+    document.getElementById('rotate-warning').style.display = (innerHeight>innerWidth) ? 'flex' : 'none';
+}
+window.addEventListener('resize',()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+    checkOrientation();
+});
+window.addEventListener('orientationchange', checkOrientation);
+checkOrientation();
+
+buildScene();
+buildEnemy();
+buildGun();
+animate();
+</script>
 </body>
 </html>
