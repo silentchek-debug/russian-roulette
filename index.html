@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -14,7 +14,7 @@ body { margin:0; overflow:hidden; background:black; font-family:monospace; }
 @keyframes vhs{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
 #grain{
     position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:51;
-    background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3"/></filter><rect width="100" height="100" filter="url(%23n)" opacity=".1"/></svg>');
+    background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3"/><feDisplacementMap in="SourceGraphic" scale="50"/></filter><rect width="100" height="100" filter="url(%23n)"/></svg>') repeat;
     opacity:.15;
 }
 #ui{
@@ -83,9 +83,11 @@ lamp.position.set(0.3,2.0,0.5);
 lamp.castShadow = true;
 scene.add(lamp);
 
-let gunGroup, cylMesh, bulletPos, currentChamber, state, ejectsLeft;
+let gunGroup, cylMesh, bulletPos, currentChamber, state = 'MENU', ejectsLeft;
 let enemyGroup, enemyArm, enemyForearm, enemyHead, enemyEyeL, enemyEyeR;
 let audioCtx, bgOsc, selectedVoice;
+let windowAnimId = null; // Для отслеживания интервала окна
+let bgOscStarted = false; // Флаг для отслеживания состояния bgOsc
 
 // ---------- ФУНКЦИИ ЗВУКА И ГОЛОСА ----------
 function createDistortionCurve(amount=400){
@@ -108,6 +110,7 @@ function initAudio(){
     bgOsc.connect(bgGain);
     bgGain.connect(audioCtx.destination);
     bgOsc.start();
+    bgOscStarted = true;
 
     const setVoice = ()=>{
         const v = speechSynthesis.getVoices();
@@ -250,7 +253,7 @@ function buildScene(){
     const winTex = new THREE.CanvasTexture(winCanvas);
     const winMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.4),new THREE.MeshBasicMaterial({map:winTex}));
     winMesh.position.set(1.2,2.8,-2.95);scene.add(winMesh);
-    setInterval(()=>{
+    windowAnimId = setInterval(()=>{
         const w=256,h=256;winCtx.fillStyle='#0a0a1a';winCtx.fillRect(0,0,w,h);
         winCtx.fillStyle='#fcc';winCtx.beginPath();winCtx.arc(180,40,30,0,Math.PI*2);winCtx.fill();
         winCtx.fillStyle='#f00';winCtx.beginPath();winCtx.arc(188,35,8,0,Math.PI*2);winCtx.fill();
@@ -354,16 +357,33 @@ function endGame(won){
     state='END';
     document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
     document.getElementById('blood').style.opacity = won ? '0' : '1';
+    document.getElementById('startBtn').style.display='inline';
     alert(won ? 'ВЫ ПОБЕДИЛИ' : 'ВЫ МЕРТВЫ');
-    if(audioCtx?.state==='running') audioCtx.suspend();
-    if(bgOsc) bgOsc.stop();
+    
+    // Безопасное отключение аудио
+    if(audioCtx && audioCtx.state==='running'){
+        if(bgOsc && bgOscStarted){
+            try { bgOsc.stop(); bgOscStarted = false; } catch(e){}
+        }
+        audioCtx.suspend().catch(e=>console.log('Audio suspend error:', e));
+    }
 }
 
 function startGame(){
+    // Защита от повторного клика
+    if(state !== 'MENU' && state !== 'END') return;
+    
     initAudio();
-    if(audioCtx?.state==='suspended') audioCtx.resume();
+    if(audioCtx && audioCtx.state==='suspended'){
+        audioCtx.resume().catch(e=>console.log('Audio resume error:', e));
+    }
+    
+    // Гарантированно разные позиции для пули и текущей камеры
     bulletPos = Math.floor(Math.random()*6);
-    currentChamber = (bulletPos + 1 + Math.floor(Math.random()*5)) % 6; // гарантирует, что первый ход не попадёт
+    do {
+        currentChamber = Math.floor(Math.random()*6);
+    } while(currentChamber === bulletPos);
+    
     ejectsLeft = 1;
     document.getElementById('startBtn').style.display='none';
     updateGunPos('TABLE');
@@ -423,12 +443,17 @@ function playerTurn(){
     document.getElementById('ejectBtn').style.display='none';
 }
 
-document.getElementById('startBtn').onclick = startGame;
+document.getElementById('startBtn').onclick = ()=>{
+    if(state !== 'MENU' && state !== 'END') return;
+    startGame();
+};
+
 document.getElementById('inspectBtn').onclick = ()=>{
     updateGunPos('PLAYER_INSPECT');
     document.getElementById('inspectBtn').style.display='none';
     document.getElementById('takeBtn').style.display='inline';
 };
+
 document.getElementById('takeBtn').onclick = ()=>{
     updateGunPos('PLAYER_HAND');
     document.getElementById('takeBtn').style.display='none';
@@ -436,11 +461,13 @@ document.getElementById('takeBtn').onclick = ()=>{
     document.getElementById('shootBtn').style.display='inline';
     if(ejectsLeft) document.getElementById('ejectBtn').style.display='inline';
 };
+
 document.getElementById('spinBtn').onclick = ()=>{
     let s=0;
     const iv = setInterval(()=>{ cylMesh.rotation.z+=1.2; if(++s>15){clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; } },60);
     say("Надейся на пустоту, червяк.");
 };
+
 document.getElementById('ejectBtn').onclick = ()=>{
     ejectsLeft--;
     document.getElementById('ejectBtn').style.display='none';
@@ -453,6 +480,7 @@ document.getElementById('ejectBtn').onclick = ()=>{
         say("Пусто. Трусливый ход.");
     }
 };
+
 document.getElementById('shootBtn').onclick = ()=>{
     updateGunPos('PLAYER_AIM');
     document.querySelectorAll('#ui button:not(#startBtn)').forEach(b=>b.style.display='none');
