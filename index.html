@@ -141,7 +141,8 @@
 
         function buildRoom() {
             const wallMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, side: THREE.BackSide, roughness: 1 });
-            const room = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), constMat);
+            // ИСПРАВЛЕНИЕ ЗДЕСЬ: constMat -> wallMat
+            const room = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), wallMat);
             room.position.y = 2.5; room.receiveShadow = true; scene.add(room);
 
             const table = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2.2), new THREE.MeshStandardMaterial({ color: 0x1a110a, roughness: 0.8 }));
