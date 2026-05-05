@@ -305,6 +305,7 @@
             gunGroup.rotation.set(0,1.5,0);
         }
 
+        // *** ИСПРАВЛЕНО: хват за рукоятку, а не за дуло ***
         function updateGunPosition(mode) {
             const targetPos = new THREE.Vector3();
             const targetRot = new THREE.Euler();
@@ -314,10 +315,10 @@
                 case 'PLAYER_HAND': targetPos.set(0.4,-0.4,-0.7); targetRot.set(0,0,0); camera.attach(gunGroup); break;
                 case 'PLAYER_AIM': targetPos.set(0,-0.1,-0.45); targetRot.set(0,0,0); camera.attach(gunGroup); break;
                 case 'ENEMY_HAND':
-                    // Пистолет в правой руке: ствол направлен вдоль предплечья к локтю,
-                    // т.е. при опущенной руке смотрит вниз, после подъёма – в голову.
-                    targetPos.set(0, -0.7, 0.05);
-                    targetRot.set(-Math.PI/2, 0, 0); // ствол вниз-вперёд
+                    // Кисть находится примерно на -0.35 по Y в enemyForearm,
+                    // пистолет должен лежать рукояткой в ладони, дуло направлено вверх (к плечу).
+                    targetPos.set(0, -0.35, 0.05);
+                    targetRot.set(Math.PI/2, 0, 0);  // дуло смотрит вдоль +Y (вверх к плечу при опущенной руке)
                     enemyForearm.attach(gunGroup);
                     break;
             }
@@ -335,6 +336,7 @@
         }
 
         // ----- ЗВУК И ГОЛОС -----
+        let selectedVoice = null;
         function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext||window.webkitAudioContext)();
@@ -352,6 +354,21 @@
             demonGainNode = audioCtx.createGain();
             demonGainNode.gain.value = 0;
             demonGainNode.connect(audioCtx.destination);
+
+            // Выбираем мужской русский голос
+            function setVoice() {
+                const voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    // Ищем мужской русский (Google или любой)
+                    selectedVoice = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes('male'));
+                    if (!selectedVoice) {
+                        // если нет явно мужского, берём любой русский и будем сильно снижать питч
+                        selectedVoice = voices.find(v => v.lang.startsWith('ru')) || null;
+                    }
+                }
+            }
+            setVoice();
+            speechSynthesis.onvoiceschanged = setVoice;
         }
 
         function playSound(type, pos) {
@@ -443,7 +460,7 @@
             }
         }
 
-        // Демонический голос: низкий pitch + подмешивание рычания
+        // *** Демонический голос: грубый мужской (или низкий женский) + рык ***
         function say(text) {
             const el = document.getElementById('dealer-speech');
             el.textContent = text; el.style.display='block';
@@ -451,14 +468,12 @@
                 if (window.speechSynthesis) {
                     const u = new SpeechSynthesisUtterance(text);
                     u.lang = 'ru-RU';
-                    u.pitch = 0.1;  // очень низкий
+                    u.pitch = 0.05;   // экстремально низкий
                     u.rate = 0.7;
-                    const voices = speechSynthesis.getVoices();
-                    const male = voices.find(v=>v.lang.startsWith('ru') && v.name.toLowerCase().includes('male'));
-                    if (male) u.voice = male;
+                    if (selectedVoice) u.voice = selectedVoice;
                     speechSynthesis.speak(u);
                 }
-                // Добавляем рычащий низкий тон на время речи (≈ длина текста * 80 мс)
+                // Рычащий сабтоновый осциллятор на время фразы
                 if (audioCtx && demonGainNode) {
                     const duration = text.length * 0.08;
                     const roar = audioCtx.createOscillator();
@@ -527,6 +542,7 @@
                         if(++spins>20) { clearInterval(iv); bulletPos=Math.floor(Math.random()*6); currentChamber=0; playSound('spin'); }
                     },60);
                 } else {
+                    // *** Фразы дилера (без цензуры) ***
                     const phrases = [
                         "Твой пот воняет страхом, кусок мяса.",
                         "Надеюсь, твои мозги хорошо отмоются от стола.",
@@ -539,19 +555,23 @@
                         "Каждый раз, когда ты крутишь, я наслаждаюсь твоим страхом.",
                         "Ты даже не представляешь, как ты жалок.",
                         "Твоя трусость — лучшее блюдо этого вечера.",
-                        "Я чую твою смерть, она слаще б**ди.",
+                        "Я чую твою смерть, она слаще бляди.",
                         "Ты конченый ублюдок, сдохни.",
                         "Соси хуй, мразь.",
                         "Твоя мать шлюха, а ты её выродок.",
                         "Я выебу твой труп, когда ты сдохнешь.",
-                        "Ты думал, тут тебе помогут? Наслаждайся."
+                        "Ты думал, тут тебе помогут? Наслаждайся.",
+                        "Ебаный ссыкло, жми на курок.",
+                        "Ты дешёвка, грязная падаль.",
+                        "Похоже, твоя удача кончилась, как сперма в твоей шлюхе-матери.",
+                        "Твои глаза вылезут из орбит, когда свинец пробьёт твой череп."
                     ];
                     say(phrases[Math.floor(Math.random()*phrases.length)]);
                 }
                 const startAim = performance.now();
                 function animAim(now) {
                     const t = Math.min(1, (now-startAim)/1500);
-                    // Плечо поднимается вперёд и в сторону, локоть сгибается
+                    // Анимация прицеливания в висок
                     enemyArm.rotation.set(-1.1*t, 0.2*t, -1.8*t);
                     enemyForearm.rotation.set(-1.5*t, 0, 0);
                     if (t<1) requestAnimationFrame(animAim);
