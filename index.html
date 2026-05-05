@@ -52,6 +52,7 @@
 
     <div class="btn-group">
         <button id="mute-btn" class="top-btn">🔊</button>
+        <button id="fs-btn" class="top-btn">⛶</button>
     </div>
 
     <canvas id="noise"></canvas>
@@ -66,6 +67,7 @@
         let gunTargetPos = new THREE.Vector3(), gunTargetRot = new THREE.Euler();
         let shakeOffset = new THREE.Vector3();
         let enemyDead = false;
+        let enemyArmTargetRotX = 0; // Целевая ротация руки дилера
 
         // ---------- ОПТИМИЗИРОВАННЫЙ ШУМ ----------
         const noiseCanvas = document.getElementById('noise');
@@ -139,7 +141,6 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 1.6, 2.5);
 
-            // Оптимизация рендера для смартфонов (Redmi)
             renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -177,7 +178,6 @@
             const leftW = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMat); leftW.rotation.y = Math.PI/2; leftW.position.set(-4, 2.5, 0); scene.add(leftW);
             const rightW = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMat); rightW.rotation.y = -Math.PI/2; rightW.position.set(4, 2.5, 0); scene.add(rightW);
             
-            // Стена с окном
             const bLeft = new THREE.Mesh(new THREE.PlaneGeometry(2, 5), wallMat); bLeft.position.set(-3, 2.5, -4); scene.add(bLeft);
             const bRight = new THREE.Mesh(new THREE.PlaneGeometry(2, 5), wallMat); bRight.position.set(3, 2.5, -4); scene.add(bRight);
             const bTop = new THREE.Mesh(new THREE.PlaneGeometry(4, 1.5), wallMat); bTop.position.set(0, 4.25, -4); scene.add(bTop);
@@ -186,7 +186,6 @@
             const table = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2.2), new THREE.MeshStandardMaterial({ color: 0x22110a, roughness: 0.8 }));
             table.position.set(0, 0.9, 0.5); table.receiveShadow = true; scene.add(table);
 
-            // Вид из окна
             const moon = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16), new THREE.MeshBasicMaterial({color: 0xaa1100}));
             moon.position.set(4, 6, -15); scene.add(moon);
         }
@@ -209,10 +208,12 @@
             const eR = new THREE.Mesh(new THREE.SphereGeometry(0.03), eyeMat); eR.position.set(0.1, 0.05, 0.18); enemyHead.add(eR);
 
             enemyGroup.add(enemyHead);
+            
             enemyArm = new THREE.Group();
-            enemyArm.position.set(0.5, 2.2, 0.1);
+            enemyArm.position.set(0.5, 2.2, 0.1); // Плечо
             const armM = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.9, 0.2), suitMat);
-            armM.position.y = -0.4; enemyArm.add(armM);
+            armM.position.y = -0.4; // Опускаем меш ниже точки вращения
+            enemyArm.add(armM);
             enemyGroup.add(enemyArm);
 
             enemyGroup.position.z = -1.5;
@@ -268,14 +269,33 @@
                 safeAttach(scene, gunGroup); gunTargetPos.set(0, 1, 1.3); gunTargetRot.set(0, -Math.PI/2, 0); 
             } else if (type === 'PLAYER_HAND') { 
                 safeAttach(camera, gunGroup); gunTargetPos.set(0.4, -0.4, -0.8); gunTargetRot.set(0, 0, 0); 
-            } else if (type === 'PLAYER_SPIN') { 
-                safeAttach(camera, gunGroup); gunTargetPos.set(0, -0.2, -0.6); gunTargetRot.set(0.5, Math.PI * 0.5, 0);
             } else if (type === 'PLAYER_AIM') { 
                 safeAttach(camera, gunGroup); gunTargetPos.set(0, -0.1, -0.4); gunTargetRot.set(0, 0, 0); 
-            } else if (type === 'ENEMY_AIM_HEAD') { 
+            } else if (type === 'ENEMY_HAND') { 
+                // Дилер держит в опущенной руке
                 safeAttach(enemyArm, gunGroup); gunTargetPos.set(0, -0.9, 0.1); gunTargetRot.set(Math.PI/2, 0, -Math.PI/2); 
             }
         }
+
+        // ---------- ФУЛЛСКРИН И ЛАНДШАФТ ----------
+        document.getElementById('fs-btn').onclick = () => {
+            const docElm = document.documentElement;
+            if (!document.fullscreenElement) {
+                docElm.requestFullscreen().then(() => {
+                    // Принудительно включаем ландшафт на телефонах
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(err => console.log('Ориентация не заблокирована:', err));
+                    }
+                    document.getElementById('fs-btn').innerText = '🗗';
+                }).catch(err => console.log(`Ошибка фуллскрина: ${err.message}`));
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+                    document.getElementById('fs-btn').innerText = '⛶';
+                }
+            }
+        };
 
         // ---------- ЛОГИКА ИГРЫ ----------
         function startGame() {
@@ -293,42 +313,49 @@
 
         function enemyTurn() {
             state = 'ENEMY';
-            document.getElementById('status').innerText = "ДИЛЕР КРУТИТ...";
-            updateGunPlacement('TABLE_ENEMY');
+            document.getElementById('status').innerText = "ДИЛЕР БЕРЕТ ОРУЖИЕ...";
+            
+            // Дилер берет пушку в руку (рука пока опущена)
+            updateGunPlacement('ENEMY_HAND');
+            enemyArmTargetRotX = 0; 
             
             setTimeout(() => {
+                document.getElementById('status').innerText = "ДИЛЕР КРУТИТ...";
                 Sound.play('spin');
                 let spins = 0;
+                
                 const eInt = setInterval(() => {
                     cylinderMesh.rotation.z += 1.2;
                     spins++;
                     if (spins > 15) {
                         clearInterval(eInt);
-                        bulletPos = Math.floor(Math.random() * 6); // Скрытый рандом дилера
+                        bulletPos = Math.floor(Math.random() * 6);
                         currentChamber = 0;
                         document.getElementById('status').innerText = "ХОД ДИЛЕРА...";
-                        updateGunPlacement('ENEMY_AIM_HEAD');
+                        
+                        // Дилер плавно поднимает руку строго ВВЕРХ
+                        enemyArmTargetRotX = -Math.PI; 
                         
                         setTimeout(() => {
-                            enemyArm.rotation.x = -Math.PI * 0.85; 
-                            setTimeout(() => {
-                                if (currentChamber === bulletPos) {
-                                    Sound.play('shot'); enemyDead = true; enemyHead.visible = false;
-                                    state = 'END'; setTimeout(() => location.reload(), 4000);
-                                } else {
-                                    Sound.play('click'); 
-                                    currentChamber = (currentChamber + 1) % 6; // ИСПРАВЛЕНО
-                                    handover();
-                                }
-                            }, 1000);
-                        }, 500);
+                            if (currentChamber === bulletPos) {
+                                Sound.play('shot'); 
+                                enemyDead = true; 
+                                state = 'END'; 
+                                setTimeout(() => location.reload(), 4000); // Дилер умирает (или игра заканчивается)
+                            } else {
+                                Sound.play('click'); 
+                                currentChamber = (currentChamber + 1) % 6;
+                                // Плавно опускаем руку обратно
+                                enemyArmTargetRotX = 0; 
+                                setTimeout(handover, 1000);
+                            }
+                        }, 1200); // Даем время руке подняться перед выстрелом
                     }
                 }, 60);
-            }, 500);
+            }, 1000); // Даем время забрать пистолет со стола
         }
 
         function handover() {
-            enemyArm.rotation.x = 0;
             updateGunPlacement('TABLE_PLAYER');
             document.getElementById('status').innerText = "ТВОЙ ХОД";
             document.getElementById('controls').style.display = 'flex';
@@ -351,11 +378,13 @@
             Sound.play('spin');
             document.getElementById('spin-btn').disabled = true;
             document.getElementById('shoot-btn').disabled = true;
-            updateGunPlacement('PLAYER_SPIN');
+            document.getElementById('status').innerText = "КРУТИТЕ...";
+            
+            // Скрываем пистолет из рук игрока во время прокрутки
+            gunGroup.visible = false;
             
             let spins = 0;
             const int = setInterval(() => {
-                cylinderMesh.rotation.z += 1.5;
                 spins++;
                 if (spins > 20) {
                     clearInterval(int);
@@ -364,7 +393,9 @@
                     document.getElementById('spin-btn').disabled = false;
                     document.getElementById('shoot-btn').disabled = false;
                     document.getElementById('status').innerText = "ГОТОВО";
-                    updateGunPlacement('PLAYER_HAND');
+                    
+                    // Возвращаем пистолет обратно в руку
+                    gunGroup.visible = true; 
                 }
             }, 50);
         };
@@ -380,7 +411,7 @@
                     state = 'END'; setTimeout(() => document.getElementById('game-over').style.display = 'flex', 2000);
                 } else {
                     Sound.play('click'); 
-                    currentChamber = (currentChamber + 1) % 6; // ИСПРАВЛЕНО
+                    currentChamber = (currentChamber + 1) % 6;
                     document.getElementById('status').innerText = "ОСЕЧКА";
                     setTimeout(enemyTurn, 1000);
                 }
@@ -405,6 +436,11 @@
 
             const time = Date.now() * 0.001;
             mainLight.intensity = 1.0 + Math.sin(time * 15) * 0.15 + (Math.random()*0.1);
+
+            // Плавное поднятие/опускание руки дилера
+            if (!enemyDead) {
+                enemyArm.rotation.x += (enemyArmTargetRotX - enemyArm.rotation.x) * 0.08;
+            }
 
             if (enemyDead && enemyGroup.rotation.x > -Math.PI / 2) {
                 enemyGroup.rotation.x -= 0.05;
