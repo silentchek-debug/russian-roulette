@@ -194,13 +194,16 @@ button:disabled {
     position: fixed;
     top: 20px;
     left: 20px;
-    padding: 8px;
-    background: rgba(20,0,0,.8);
-    border: 2px solid #500;
+    padding: 8px 15px;
+    background: rgba(20,0,0,.9);
+    border: 2px solid #f00;
     color: #f00;
     font-size: 1.4rem;
     z-index: 20;
     pointer-events: none;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    box-shadow: 0 0 10px rgba(255,0,0,0.5);
 }
 
 #speech {
@@ -209,17 +212,18 @@ button:disabled {
     left: 50%;
     transform: translateX(-50%);
     z-index: 30;
-    padding: 12px;
-    background: rgba(0,0,0,.9);
-    border: 1px solid #444;
+    padding: 15px;
+    background: rgba(0,0,0,.95);
+    border: 2px solid #f00;
     border-radius: 8px;
-    max-width: 300px;
+    max-width: 400px;
     color: #fff;
     font-size: 1.1rem;
     text-align: center;
     display: none;
     text-shadow: 0 0 10px rgba(255,0,0,.5);
     animation: speechPop 0.3s ease;
+    box-shadow: 0 0 20px rgba(255,0,0,0.3);
 }
 
 @keyframes speechPop {
@@ -248,6 +252,9 @@ button:disabled {
     font-size: 0.9rem;
     z-index: 10;
     text-shadow: 0 0 5px #f00;
+    background: rgba(0,0,0,0.7);
+    padding: 10px;
+    border: 1px solid #f00;
 }
 
 .loading {
@@ -291,7 +298,7 @@ button:disabled {
     <div id="vhs"></div>
     <div id="blood"></div>
     <button id="fullscreenBtn">⛶ FULLSCREEN</button>
-    <div id="clock"></div>
+    <div id="clock">00:00:00</div>
     <div id="speech"></div>
     <div class="hud-info" id="hudInfo"></div>
     
@@ -356,11 +363,12 @@ class MenuManager {
         document.getElementById('modalContent').innerHTML = `
             <strong>STAKES: Russian Roulette AI</strong><br><br>
             Экспериментальная 3D игра с искусственным интеллектом<br><br>
-            💀 Враг с грубым голосом<br>
+            💀 Враг-дилер с грубым мужским голосом<br>
+            🧠 Продвинутый AI противник<br>
             🔊 Синтез речи и звуковые эффекты<br>
             🎮 WebGL 3D графика<br>
-            ⚔️ Интеллектуальный противник<br><br>
-            Версия: 2.0<br>
+            ⚔️ Динамичная тактика<br><br>
+            Версия: 3.0<br>
             <small>⚠️ Только для 18+</small>
         `;
         this.modal.style.display = 'flex';
@@ -381,6 +389,7 @@ class Game3D {
     constructor() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x0a0a0a);
+        this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 20);
         
         this.camera = new THREE.PerspectiveCamera(
             60,
@@ -390,8 +399,13 @@ class Game3D {
         );
         this.camera.position.set(0, 1.6, 2.5);
         
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('canvas') });
+        this.renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            canvas: document.getElementById('canvas'),
+            powerPreference: 'high-performance'
+        });
         this.renderer.setSize(innerWidth, innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
@@ -401,52 +415,123 @@ class Game3D {
     }
     
     setupLights() {
-        const ambient = new THREE.AmbientLight(0x221111, 0.4);
+        // Окружающее освещение
+        const ambient = new THREE.AmbientLight(0x221111, 0.3);
         this.scene.add(ambient);
         
-        this.lamp = new THREE.PointLight(0xffccaa, 1.2, 8);
-        this.lamp.position.set(0.3, 2.0, 0.5);
-        this.lamp.castShadow = true;
-        this.scene.add(this.lamp);
+        // Основной источник света (люстра)
+        this.mainLight = new THREE.PointLight(0xffccaa, 1.5, 12);
+        this.mainLight.position.set(0, 2.8, 0);
+        this.mainLight.castShadow = true;
+        this.mainLight.shadow.mapSize.width = 2048;
+        this.mainLight.shadow.mapSize.height = 2048;
+        this.scene.add(this.mainLight);
+        
+        // Направленный свет для контраста
+        const dirLight = new THREE.DirectionalLight(0xff6666, 0.2);
+        dirLight.position.set(2, 3, 2);
+        dirLight.castShadow = true;
+        this.scene.add(dirLight);
     }
     
     buildModels() {
         this.buildScene();
-        this.buildEnemy();
+        this.buildDealer();
         this.buildGun();
     }
     
+    createTextureCanvas(width, height, callback) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        callback(ctx, width, height);
+        return new THREE.CanvasTexture(canvas);
+    }
+    
     buildScene() {
-        // Пол
-        const floorGeo = new THREE.PlaneGeometry(8, 8);
-        const floorMat = new THREE.MeshStandardMaterial({ 
-            color: 0x1a1a1a,
-            roughness: 0.9 
+        // Пол с текстурой
+        const floorTexture = this.createTextureCanvas(256, 256, (ctx) => {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, 256, 256);
+            
+            for (let i = 0; i < 100; i++) {
+                ctx.fillStyle = `rgba(${20 + Math.random()*20},${20 + Math.random()*20},${20 + Math.random()*20},0.5)`;
+                ctx.fillRect(Math.random()*256, Math.random()*256, Math.random()*20+5, Math.random()*20+5);
+            }
+            
+            // Линии доски
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 256; i += 32) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, 256);
+                ctx.stroke();
+            }
         });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
+        
+        floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(2, 2);
+        
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(8, 8),
+            new THREE.MeshStandardMaterial({ 
+                map: floorTexture,
+                roughness: 0.8,
+                metalness: 0.1
+            })
+        );
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         this.scene.add(floor);
         
-        // Стена
-        const backGeo = new THREE.PlaneGeometry(8, 5);
-        const backMat = new THREE.MeshStandardMaterial({ 
-            color: 0x0a0a0a,
-            roughness: 1 
+        // Стены с текстурой бетона
+        const wallTexture = this.createTextureCanvas(256, 256, (ctx) => {
+            ctx.fillStyle = '#0f0f0f';
+            ctx.fillRect(0, 0, 256, 256);
+            
+            for (let i = 0; i < 500; i++) {
+                ctx.fillStyle = `rgba(${15 + Math.random()*25},${15 + Math.random()*25},${15 + Math.random()*25},0.8)`;
+                ctx.fillRect(Math.random()*256, Math.random()*256, 1, 1);
+            }
         });
-        const back = new THREE.Mesh(backGeo, backMat);
+        
+        wallTexture.wrapS = wallTexture.wrapT = THREE.RepeatWrapping;
+        wallTexture.repeat.set(2, 3);
+        
+        const wallMat = new THREE.MeshStandardMaterial({ 
+            map: wallTexture,
+            roughness: 0.95,
+            metalness: 0
+        });
+        
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), wallMat);
         back.position.set(0, 2.5, -3);
         back.receiveShadow = true;
         this.scene.add(back);
         
-        // Окно с грозой
-        this.createStormWindow();
+        const left = new THREE.Mesh(new THREE.PlaneGeometry(3, 5), wallMat);
+        left.rotation.y = Math.PI / 2;
+        left.position.set(-4, 2.5, 0);
+        left.receiveShadow = true;
+        this.scene.add(left);
+        
+        const right = new THREE.Mesh(new THREE.PlaneGeometry(3, 5), wallMat);
+        right.rotation.y = Math.PI / 2;
+        right.position.set(4, 2.5, 0);
+        right.receiveShadow = true;
+        this.scene.add(right);
+        
+        // Окно с видом города и молниями
+        this.createCityWindow();
         
         // Стол
         const tableGeo = new THREE.BoxGeometry(2.5, 0.1, 1.5);
         const tableMat = new THREE.MeshStandardMaterial({ 
-            color: 0x150d08,
-            roughness: 0.8 
+            color: 0x2a1a0a,
+            roughness: 0.7,
+            metalness: 0.1
         });
         const table = new THREE.Mesh(tableGeo, tableMat);
         table.position.set(0, 0.9, 0.8);
@@ -455,100 +540,209 @@ class Game3D {
         this.scene.add(table);
     }
     
-    createStormWindow() {
+    createCityWindow() {
         const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = 256;
+        canvas.width = canvas.height = 512;
         const ctx = canvas.getContext('2d');
         
         const texture = new THREE.CanvasTexture(canvas);
         const mesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(1.8, 1.4),
+            new THREE.PlaneGeometry(2.2, 1.6),
             new THREE.MeshBasicMaterial({ map: texture })
         );
-        mesh.position.set(1.2, 2.8, -2.95);
+        mesh.position.set(1.3, 2.8, -2.95);
         this.scene.add(mesh);
         
+        let lightningTime = 0;
+        
         setInterval(() => {
+            // Ночное небо с городом
             ctx.fillStyle = '#0a0a1a';
-            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillRect(0, 0, 512, 512);
             
             // Луна
             ctx.fillStyle = '#fcc';
             ctx.beginPath();
-            ctx.arc(180, 40, 30, 0, Math.PI * 2);
+            ctx.arc(450, 80, 50, 0, Math.PI * 2);
             ctx.fill();
             
-            // Кровавый глаз луны
+            // Красный глаз на луне
             ctx.fillStyle = '#f00';
             ctx.beginPath();
-            ctx.arc(188, 35, 8, 0, Math.PI * 2);
+            ctx.arc(470, 70, 15, 0, Math.PI * 2);
             ctx.fill();
             
-            // Молния
-            if (Math.random() < 0.02) {
-                ctx.strokeStyle = '#ffa';
-                ctx.lineWidth = 2;
+            // Облака
+            ctx.fillStyle = 'rgba(50,50,70,0.3)';
+            for (let i = 0; i < 5; i++) {
                 ctx.beginPath();
-                ctx.moveTo(100, 0);
-                ctx.lineTo(90, 60);
-                ctx.lineTo(110, 90);
-                ctx.lineTo(80, 140);
+                ctx.arc(Math.sin(Date.now()*0.0001+i)*200+256, 100+i*20, 60, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            // Силуэты зданий
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 300, 100, 212);
+            ctx.fillRect(150, 320, 80, 192);
+            ctx.fillRect(280, 310, 120, 202);
+            ctx.fillRect(420, 330, 92, 182);
+            
+            // Окна в зданиях (с огнями)
+            ctx.fillStyle = '#ffdd00';
+            for (let i = 0; i < 20; i++) {
+                if (Math.random() > 0.5) {
+                    ctx.fillRect(Math.random()*100+10, Math.random()*150+320, 12, 12);
+                    ctx.fillRect(Math.random()*80+160, Math.random()*130+340, 12, 12);
+                    ctx.fillRect(Math.random()*120+290, Math.random()*150+330, 12, 12);
+                }
+            }
+            
+            // Молнии
+            if (Math.random() < 0.03) {
+                lightningTime = 5;
+            }
+            
+            if (lightningTime > 0) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = lightningTime / 5;
+                
+                let x = 256 + Math.random()*100;
+                let y = 100;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                for (let i = 0; i < 10; i++) {
+                    ctx.lineTo(x + Math.random()*20-10, y + Math.random()*30+20);
+                    y += 30;
+                }
                 ctx.stroke();
+                
+                ctx.globalAlpha = 1;
+                lightningTime--;
             }
             
             texture.needsUpdate = true;
         }, 100);
     }
     
-    buildEnemy() {
-        this.enemyGroup = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1a,
-            roughness: 0.8
+    buildDealer() {
+        this.dealerGroup = new THREE.Group();
+        
+        // Материал кожи
+        const skinMat = new THREE.MeshStandardMaterial({
+            color: 0x3a2a1a,
+            roughness: 0.8,
+            metalness: 0
         });
         
-        // Тело
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.3), mat);
-        body.position.y = 1;
-        body.castShadow = true;
-        this.enemyGroup.add(body);
+        const clothMat = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 0.9,
+            metalness: 0
+        });
+        
+        // Ноги
+        const thighL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), clothMat);
+        thighL.position.set(-0.2, 0.4, 0);
+        thighL.castShadow = true;
+        this.dealerGroup.add(thighL);
+        
+        const thighR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), clothMat);
+        thighR.position.set(0.2, 0.4, 0);
+        thighR.castShadow = true;
+        this.dealerGroup.add(thighR);
+        
+        const shinL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.35, 0.15), clothMat);
+        shinL.position.set(-0.2, 0.05, 0.15);
+        shinL.castShadow = true;
+        this.dealerGroup.add(shinL);
+        
+        const shinR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.35, 0.15), clothMat);
+        shinR.position.set(0.2, 0.05, 0.15);
+        shinR.castShadow = true;
+        this.dealerGroup.add(shinR);
+        
+        // Туловище
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.3), clothMat);
+        torso.position.y = 1;
+        torso.castShadow = true;
+        this.dealerGroup.add(torso);
         
         // Голова
-        this.enemyHead = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.4, 0.35), mat);
-        this.enemyHead.position.y = 1.75;
-        this.enemyHead.castShadow = true;
-        this.enemyGroup.add(this.enemyHead);
+        this.dealerHead = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 0.35), skinMat);
+        this.dealerHead.position.y = 1.75;
+        this.dealerHead.castShadow = true;
+        this.dealerGroup.add(this.dealerHead);
         
-        // Глаза (светящиеся красные)
-        const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
+        // Волосы
+        const hair = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.25, 0.37), new THREE.MeshStandardMaterial({
+            color: 0x0a0a0a,
+            roughness: 0.9
+        }));
+        hair.position.set(0, 1.92, 0);
+        hair.castShadow = true;
+        this.dealerGroup.add(hair);
+        
+        // Глаза (красные светящиеся)
+        const eyeGeo = new THREE.SphereGeometry(0.08, 16, 16);
         const eyeMat = new THREE.MeshStandardMaterial({
-            color: 0xf00,
+            color: 0xff0000,
             emissive: 0xff0000,
-            emissiveIntensity: 0.8
+            emissiveIntensity: 1
         });
         
-        this.enemyEyeL = new THREE.Mesh(eyeGeo, eyeMat);
-        this.enemyEyeL.position.set(-0.08, 1.85, 0.16);
-        this.enemyGroup.add(this.enemyEyeL);
+        this.dealerEyeL = new THREE.Mesh(eyeGeo, eyeMat);
+        this.dealerEyeL.position.set(-0.1, 1.85, 0.15);
+        this.dealerEyeL.castShadow = true;
+        this.dealerGroup.add(this.dealerEyeL);
         
-        this.enemyEyeR = new THREE.Mesh(eyeGeo, eyeMat);
-        this.enemyEyeR.position.set(0.08, 1.85, 0.16);
-        this.enemyGroup.add(this.enemyEyeR);
+        this.dealerEyeR = new THREE.Mesh(eyeGeo, eyeMat);
+        this.dealerEyeR.position.set(0.1, 1.85, 0.15);
+        this.dealerEyeR.castShadow = true;
+        this.dealerGroup.add(this.dealerEyeR);
         
         // Рука с револьвером
-        this.enemyArm = new THREE.Group();
-        this.enemyArm.position.set(0.3, 1.5, 0.1);
+        this.dealerArm = new THREE.Group();
+        this.dealerArm.position.set(0.3, 1.5, 0.1);
         
-        const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.1), mat);
-        upperArm.position.y = -0.22;
-        upperArm.castShadow = true;
-        this.enemyArm.add(upperArm);
+        const shoulderMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), clothMat);
+        shoulderMesh.position.y = -0.22;
+        shoulderMesh.castShadow = true;
+        this.dealerArm.add(shoulderMesh);
         
-        this.enemyGroup.add(this.enemyArm);
-        this.enemyGroup.position.set(0, 0.25, -0.5);
-        this.enemyGroup.castShadow = true;
+        this.dealerForearm = new THREE.Group();
+        this.dealerForearm.position.set(0, -0.5, 0);
         
-        this.scene.add(this.enemyGroup);
+        const forearmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.38, 0.09), skinMat);
+        forearmMesh.position.y = -0.17;
+        forearmMesh.castShadow = true;
+        this.dealerForearm.add(forearmMesh);
+        
+        // Пальцы
+        const fingerGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.1);
+        const fingerMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
+        
+        for (let i = 0; i < 4; i++) {
+            const finger = new THREE.Mesh(fingerGeo, fingerMat);
+            finger.position.set(0.03 - i*0.025, -0.38, 0.04);
+            finger.rotation.z = Math.PI / 6;
+            finger.castShadow = true;
+            this.dealerForearm.add(finger);
+        }
+        
+        const thumb = new THREE.Mesh(fingerGeo, fingerMat);
+        thumb.position.set(-0.05, -0.36, 0.02);
+        thumb.rotation.z = -Math.PI / 6;
+        thumb.castShadow = true;
+        this.dealerForearm.add(thumb);
+        
+        this.dealerArm.add(this.dealerForearm);
+        this.dealerGroup.add(this.dealerArm);
+        
+        this.dealerGroup.position.set(0, 0.25, -0.5);
+        this.dealerGroup.castShadow = true;
+        
+        this.scene.add(this.dealerGroup);
     }
     
     buildGun() {
@@ -556,7 +750,7 @@ class Game3D {
         const metalMat = new THREE.MeshStandardMaterial({
             color: 0x1a1a1a,
             metalness: 0.95,
-            roughness: 0.3
+            roughness: 0.2
         });
         
         // Ствол
@@ -582,13 +776,22 @@ class Game3D {
         const grip = new THREE.Mesh(
             new THREE.BoxGeometry(0.07, 0.2, 0.1),
             new THREE.MeshStandardMaterial({
-                color: 0x3a2a1a,
-                roughness: 0.9
+                color: 0x4a3a2a,
+                roughness: 0.8
             })
         );
         grip.position.set(0, -0.15, -0.15);
         grip.castShadow = true;
         this.gunGroup.add(grip);
+        
+        // Спусковой крючок
+        const trigger = new THREE.Mesh(
+            new THREE.BoxGeometry(0.03, 0.08, 0.02),
+            metalMat
+        );
+        trigger.position.set(0, -0.08, -0.08);
+        trigger.castShadow = true;
+        this.gunGroup.add(trigger);
         
         this.scene.add(this.gunGroup);
         this.gunGroup.position.set(0.2, 1, 0.8);
@@ -598,15 +801,16 @@ class Game3D {
     animate() {
         requestAnimationFrame(() => this.animate());
         
-        // Анимация глаз врага
-        if (this.enemyEyeL) {
-            this.enemyEyeL.material.emissiveIntensity = 0.5 + Math.sin(Date.now() * 0.01) * 0.3;
-            this.enemyEyeR.material.emissiveIntensity = 0.5 + Math.cos(Date.now() * 0.01) * 0.3;
+        // Анимация глаз дилера
+        if (this.dealerEyeL && this.dealerEyeR) {
+            const eyeIntensity = 0.6 + Math.sin(Date.now() * 0.008) * 0.4;
+            this.dealerEyeL.material.emissiveIntensity = eyeIntensity;
+            this.dealerEyeR.material.emissiveIntensity = eyeIntensity;
         }
         
         // Вибрация лампы
-        if (this.lamp) {
-            this.lamp.intensity = 1 + Math.random() * 0.15;
+        if (this.mainLight) {
+            this.mainLight.intensity = 1.5 + Math.random() * 0.2;
         }
         
         this.renderer.render(this.scene, this.camera);
@@ -619,29 +823,112 @@ class Game3D {
     }
 }
 
+// ===== AI ДИЛЕРА =====
+class DealerAI {
+    constructor() {
+        this.riskTolerance = 0.5;
+        this.chambersSurvived = 0;
+        this.consecutiveSurvives = 0;
+    }
+    
+    decideShotRisk(currentChamber, totalChambers = 6) {
+        const chambersSafe = totalChambers - currentChamber;
+        this.chambersSurvived++;
+        
+        if (this.chambersSurvived > 3) {
+            this.riskTolerance += 0.1;
+        }
+        
+        const survivalChance = chambersSafe / totalChambers;
+        const riskFactor = Math.random();
+        
+        return riskFactor > this.riskTolerance;
+    }
+    
+    getDialogue(situation) {
+        const dialogues = {
+            start: [
+                "Добро пожаловать на финальный раунд...",
+                "Давайте посмотрим, сколько вы прожили...",
+                "Пришло время проверить вашу судьбу...",
+                "Приготовьтесь встретить конец..."
+            ],
+            beforeShot: [
+                "Твой страх пахнет восхитительно...",
+                "Слышу, как бьётся твоё сердце...",
+                "Это может быть конец...",
+                "Последний шанс убежать..."
+            ],
+            survived: [
+                "Повезло... на этот раз.",
+                "Судьба милосердна... пока.",
+                "Ещё живой? Интересно...",
+                "Твоё время идёт..."
+            ],
+            confident: [
+                "Я знаю, что произойдёт...",
+                "Развязка близка...",
+                "Смерть уже здесь...",
+                "Нет спасения..."
+            ]
+        };
+        
+        const category = dialogues[situation] || dialogues.beforeShot;
+        return category[Math.floor(Math.random() * category.length)];
+    }
+    
+    reset() {
+        this.riskTolerance = 0.5;
+        this.chambersSurvived = 0;
+        this.consecutiveSurvives = 0;
+    }
+}
+
 // ===== ОСНОВНОЙ ИГРОВОЙ МЕНЕДЖЕР =====
 class GameManager {
     constructor() {
         this.game3D = new Game3D();
         this.menuManager = new MenuManager();
+        this.dealerAI = new DealerAI();
+        
         this.state = 'MENU';
         this.bulletPos = 0;
         this.currentChamber = 0;
         this.audioCtx = null;
-        this.gameStats = { rounds: 0, playerShots: 0, enemyShots: 0 };
+        this.ejectsLeft = 1;
+        this.gameStats = { rounds: 0, playerShots: 0, enemyShots: 0, wins: 0 };
         
         this.setupGameEvents();
+        this.startClockUpdate();
         window.addEventListener('resize', () => this.game3D.onWindowResize());
         window.gameManager = this;
     }
     
     setupGameEvents() {
-        document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+        document.getElementById('startBtn').addEventListener('click', () => this.playerAction('start'));
+        document.getElementById('inspectBtn').addEventListener('click', () => this.playerAction('inspect'));
+        document.getElementById('takeBtn').addEventListener('click', () => this.playerAction('take'));
+        document.getElementById('spinBtn').addEventListener('click', () => this.playerAction('spin'));
+        document.getElementById('ejectBtn').addEventListener('click', () => this.playerAction('eject'));
+        document.getElementById('shootBtn').addEventListener('click', () => this.playerAction('shoot'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
     }
     
+    startClockUpdate() {
+        setInterval(() => {
+            const now = new Date();
+            const time = now.toLocaleTimeString('ru-RU', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('clock').textContent = time;
+        }, 1000);
+    }
+    
     startNewGame() {
-        this.state = 'GAME';
+        this.state = 'PLAYING';
         this.gameStats.rounds++;
         this.updateHUD();
         
@@ -650,12 +937,122 @@ class GameManager {
             this.currentChamber = Math.floor(Math.random() * 6);
         } while (this.currentChamber === this.bulletPos);
         
+        this.ejectsLeft = 1;
+        this.dealerAI.reset();
+        
         this.initAudio();
-        this.say("Новая игра начинается...", true);
+        this.say(this.dealerAI.getDialogue('start'), true);
+        
+        setTimeout(() => this.dealerTurn(), 2000);
     }
     
-    startGame() {
-        this.startNewGame();
+    playerAction(action) {
+        if (this.state !== 'PLAYER_TURN') return;
+        
+        switch(action) {
+            case 'start':
+                this.startNewGame();
+                break;
+            case 'inspect':
+                this.say("Осматриваю револьвер...", false);
+                setTimeout(() => this.dealerTurn(), 1500);
+                break;
+            case 'spin':
+                this.say("Кручу барабан...", false);
+                this.spinCylinder();
+                setTimeout(() => this.dealerTurn(), 1000);
+                break;
+            case 'shoot':
+                this.playerShoot();
+                break;
+            case 'eject':
+                this.tryEject();
+                break;
+            case 'take':
+                this.say("Беру револьвер...", false);
+                break;
+        }
+    }
+    
+    spinCylinder() {
+        let spins = 0;
+        const interval = setInterval(() => {
+            this.game3D.cylMesh.rotation.z += 1.2;
+            spins++;
+            if (spins > 20) {
+                clearInterval(interval);
+                this.bulletPos = Math.floor(Math.random() * 6);
+                this.currentChamber = 0;
+            }
+        }, 60);
+    }
+    
+    dealerTurn() {
+        if (this.state !== 'PLAYING') return;
+        
+        this.state = 'DEALER_TURN';
+        this.gameStats.enemyShots++;
+        
+        this.say(this.dealerAI.getDialogue('beforeShot'), true);
+        
+        // AI решает, стрелять ли
+        const shouldShoot = this.dealerAI.decideShotRisk(this.currentChamber);
+        
+        setTimeout(() => {
+            if (shouldShoot || Math.random() > 0.4) {
+                this.dealerShoot();
+            } else {
+                this.say("Слишком опасно... Твой ход.", true);
+                this.currentChamber++;
+                this.state = 'PLAYER_TURN';
+                this.showPlayerButtons();
+            }
+        }, 2000);
+    }
+    
+    dealerShoot() {
+        if (this.currentChamber === this.bulletPos) {
+            this.say("Время вышло!", true);
+            this.say("ЫРРРР!!!", true);
+            this.endGame(true);
+        } else {
+            this.playSound('click');
+            this.say(this.dealerAI.getDialogue('survived'), true);
+            this.currentChamber++;
+            this.state = 'PLAYER_TURN';
+            this.showPlayerButtons();
+        }
+    }
+    
+    playerShoot() {
+        this.gameStats.playerShots++;
+        this.updateHUD();
+        
+        if (this.currentChamber === this.bulletPos) {
+            this.say("Я... Я вижу свет...", true);
+            this.say("ВЫСТРЕЛ!", false);
+            this.playSound('shot');
+            this.endGame(false);
+        } else {
+            this.playSound('click');
+            this.currentChamber++;
+            this.dealerTurn();
+        }
+    }
+    
+    tryEject() {
+        if (this.ejectsLeft <= 0) return;
+        
+        this.ejectsLeft--;
+        if (this.currentChamber === this.bulletPos) {
+            this.say("ПОБЕДА! Патрон выброшен!", false);
+            this.endGame(false);
+            this.gameStats.wins++;
+        } else {
+            this.say("Пусто...", false);
+            this.currentChamber++;
+            this.dealerTurn();
+        }
     }
     
     initAudio() {
@@ -663,7 +1060,30 @@ class GameManager {
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    say(text, isEnemy = false) {
+    playSound(type) {
+        if (!this.audioCtx) return;
+        
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        
+        if (type === 'click') {
+            osc.frequency.value = 800;
+            gain.gain.value = 0.2;
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.1);
+        } else if (type === 'shot') {
+            osc.type = 'square';
+            osc.frequency.value = 60;
+            gain.gain.value = 1;
+            gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 1);
+        }
+    }
+    
+    say(text, isDealer = false) {
         const el = document.getElementById('speech');
         el.textContent = text;
         el.style.display = 'block';
@@ -672,8 +1092,9 @@ class GameManager {
             if (window.speechSynthesis) {
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'ru-RU';
-                u.pitch = isEnemy ? 0.4 : 1.2;
-                u.rate = isEnemy ? 0.6 : 0.9;
+                u.pitch = isDealer ? 0.5 : 1.2;
+                u.rate = isDealer ? 0.7 : 0.9;
+                u.volume = 1;
                 speechSynthesis.speak(u);
             }
         } catch (e) {}
@@ -681,12 +1102,36 @@ class GameManager {
         setTimeout(() => { el.style.display = 'none'; }, 4000);
     }
     
+    showPlayerButtons() {
+        document.getElementById('shootBtn').style.display = 'inline';
+        if (this.ejectsLeft > 0) {
+            document.getElementById('ejectBtn').style.display = 'inline';
+        }
+    }
+    
     updateHUD() {
         document.getElementById('hudInfo').innerHTML = `
-            Раунд: ${this.gameStats.rounds}<br>
-            Ваши выстрелы: ${this.gameStats.playerShots}<br>
-            Выстрелы врага: ${this.gameStats.enemyShots}
+            <strong>Раунд:</strong> ${this.gameStats.rounds}<br>
+            <strong>Победы:</strong> ${this.gameStats.wins}<br>
+            <strong>Ваши выстрелы:</strong> ${this.gameStats.playerShots}<br>
+            <strong>Выстрелы врага:</strong> ${this.gameStats.enemyShots}
         `;
+    }
+    
+    endGame(playerLost) {
+        this.state = 'END';
+        document.querySelectorAll('#ui button').forEach(b => b.style.display = 'none');
+        document.getElementById('startBtn').style.display = 'inline';
+        
+        if (playerLost) {
+            document.getElementById('blood').style.opacity = '1';
+            this.say("Вы мертвы...", true);
+            alert('ВЫ ПРОИГРАЛИ!');
+        } else {
+            document.getElementById('blood').style.opacity = '0';
+            this.say("Нет... Это невозможно...", true);
+            alert('ВЫ ПОБЕДИЛИ!');
+        }
     }
     
     toggleFullscreen() {
